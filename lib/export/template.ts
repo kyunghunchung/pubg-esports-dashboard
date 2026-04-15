@@ -48,17 +48,17 @@ export function generateUploadTemplate(): Uint8Array {
   ]), '이벤트_참고')
 
   // ── 뷰어십 ───────────────────────────────────────────────
-  const viewershipPlatformExample = Object.keys(VIEWERSHIP_PLATFORMS)[0] // 'twitch'
   XLSX.utils.book_append_sheet(wb, makeSheet(
-    ['이벤트명', '플랫폼', 'Peak CCV', 'ACV', 'Hours Watched', '순 시청자 수', '방송 시간(h)', '기록일(YYYY-MM-DD)'],
-    ['PNC 2025', viewershipPlatformExample, 423000, 187000, 3712000, 1840000, 90, '2025-08-03'],
+    ['이벤트명', '플랫폼(선택)', 'Peak CCV', 'ACV', 'Hours Watched', '순 시청자 수', '방송 시간(h)', '기록일(YYYY-MM-DD)'],
+    ['PNC 2025', '', 423000, 187000, 3712000, 1840000, 90, '2025-08-03'],
   ), '뷰어십')
 
   XLSX.utils.book_append_sheet(wb, makeRefSheet('뷰어십 플랫폼 입력값', [
+    ['(비워두면 전체 합산)', '플랫폼 구분 없이 입력할 때는 빈칸으로 두세요'],
+    ['──', '──'],
     ...Object.entries(VIEWERSHIP_PLATFORMS).map(([id, label]) => [id, label] as [string, string]),
     ['──', '──'],
-    ['플랫폼별 행 분리', '플랫폼마다 한 행씩 입력하세요'],
-    ['전체 합산은 total', '모든 플랫폼 합산 시 total 사용'],
+    ['플랫폼별 분리 입력 시', '플랫폼마다 한 행씩 입력하세요'],
   ]), '뷰어십_플랫폼참고')
 
   // ── 소셜 ─────────────────────────────────────────────────

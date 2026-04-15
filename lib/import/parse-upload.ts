@@ -228,9 +228,11 @@ function parseTemplateFile(wb: XLSX.WorkBook): ParseResult {
     const event_id = requireEvent(raw)
     if (event_id === null) return null  // 이벤트명 빈칸 → 스킵
 
-    const platformInput = String(raw['플랫폼'] ?? '').trim()
-    if (!platformInput) return null  // 플랫폼 빈칸 → 스킵
-    const platform = normalizeViewershipPlatform(platformInput)
+    // '플랫폼(선택)' 또는 '플랫폼' 모두 허용, 빈칸이면 total(전체 합산)로 간주
+    const platformInput = String(raw['플랫폼(선택)'] ?? raw['플랫폼'] ?? '').trim()
+    const platform = platformInput
+      ? normalizeViewershipPlatform(platformInput)
+      : 'total'
     if (!platform) {
       const valid = Object.keys(VIEWERSHIP_PLATFORMS).join(' / ')
       throw new Error(`플랫폼 값 오류: '${platformInput}'. 허용값: ${valid}`)
