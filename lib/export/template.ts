@@ -11,6 +11,17 @@ function makeSheet(headers: string[], example: (string | number)[]) {
 export function generateUploadTemplate(): Uint8Array {
   const wb = XLSX.utils.book_new()
 
+  // ── 이벤트 (먼저 입력) ─────────────────────────────────
+  XLSX.utils.book_append_sheet(wb, makeSheet(
+    ['이벤트명', '유형', '연도', '시작일', '종료일', '장소', '지역', '상태'],
+    ['PNC 2025', 'PNC', 2025, '2025-07-31', '2025-08-03', 'Seoul, Korea', 'Global', 'completed'],
+  ), '이벤트')
+
+  XLSX.utils.book_append_sheet(wb, makeSheet(
+    ['유형 값', '상태 값'],
+    ['PNC / PGC / PGS / GOTF / EWC / ENC', 'upcoming / live / completed'],
+  ), '이벤트_참고')
+
   // ── Viewership ─────────────────────────────────────────
   XLSX.utils.book_append_sheet(wb, makeSheet(
     ['이벤트명', '플랫폼', 'Peak CCV', 'ACV', 'Hours Watched', '순 시청자 수', '방송 시간(h)', '기록일(YYYY-MM-DD)'],
