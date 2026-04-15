@@ -215,17 +215,21 @@ function parseTemplateFile(wb: XLSX.WorkBook): ParseResult {
     return results
   }
 
-  function requireEvent(raw: Record<string, unknown>, sheetName: string, rowIdx: number): string {
+  // 이벤트명이 빈칸이면 null(스킵), 이벤트명은 있지만 이벤트 시트에 없으면 에러
+  function requireEvent(raw: Record<string, unknown>): string | null {
     const name = String(raw['이벤트명'] ?? '').trim()
-    if (!name) throw new Error('이벤트명이 비어있습니다')
+    if (!name) return null  // 빈칸 → 조용히 스킵
     const id = findEventId(name, events)
     if (!id) throw new Error(`'${name}' 이벤트를 찾을 수 없습니다. 이벤트 시트에 먼저 추가하세요.`)
     return id
   }
 
   const viewership = processSheet<ViewershipKpi>('뷰어십', 'viewership', (raw, rowIdx) => {
-    const event_id = requireEvent(raw, '뷰어십', rowIdx)
+    const event_id = requireEvent(raw)
+    if (event_id === null) return null  // 이벤트명 빈칸 → 스킵
+
     const platformInput = String(raw['플랫폼'] ?? '').trim()
+    if (!platformInput) return null  // 플랫폼 빈칸 → 스킵
     const platform = normalizeViewershipPlatform(platformInput)
     if (!platform) {
       const valid = Object.keys(VIEWERSHIP_PLATFORMS).join(' / ')
@@ -245,8 +249,11 @@ function parseTemplateFile(wb: XLSX.WorkBook): ParseResult {
   })
 
   const social = processSheet<SocialKpi>('소셜', 'social', (raw, rowIdx) => {
-    const event_id = requireEvent(raw, '소셜', rowIdx)
+    const event_id = requireEvent(raw)
+    if (event_id === null) return null
+
     const platformInput = String(raw['플랫폼'] ?? '').trim()
+    if (!platformInput) return null  // 플랫폼 빈칸 → 스킵
     const platform = normalizeSocialPlatform(platformInput)
     if (!platform) {
       const valid = Object.keys(SOCIAL_PLATFORMS).join(' / ')
@@ -265,7 +272,8 @@ function parseTemplateFile(wb: XLSX.WorkBook): ParseResult {
   })
 
   const broadcast = processSheet<BroadcastKpi>('방송', 'broadcast', (raw, rowIdx) => {
-    const event_id = requireEvent(raw, '방송', rowIdx)
+    const event_id = requireEvent(raw)
+    if (event_id === null) return null
     return {
       id:                  crypto.randomUUID(),
       event_id,
@@ -279,7 +287,8 @@ function parseTemplateFile(wb: XLSX.WorkBook): ParseResult {
   })
 
   const competitive = processSheet<CompetitiveKpi>('경쟁', 'competitive', (raw, rowIdx) => {
-    const event_id = requireEvent(raw, '경쟁', rowIdx)
+    const event_id = requireEvent(raw)
+    if (event_id === null) return null
     return {
       id:             crypto.randomUUID(),
       event_id,
@@ -292,7 +301,8 @@ function parseTemplateFile(wb: XLSX.WorkBook): ParseResult {
   })
 
   const live_event = processSheet<LiveEventKpi>('현장', 'live_event', (raw, rowIdx) => {
-    const event_id = requireEvent(raw, '현장', rowIdx)
+    const event_id = requireEvent(raw)
+    if (event_id === null) return null
     return {
       id:                crypto.randomUUID(),
       event_id,
@@ -304,12 +314,15 @@ function parseTemplateFile(wb: XLSX.WorkBook): ParseResult {
   })
 
   const kpi_targets = processSheet<KpiTarget>('KPI목표값', 'kpi_targets', (raw, rowIdx) => {
-    const event_id = requireEvent(raw, 'KPI목표값', rowIdx)
+    const event_id = requireEvent(raw)
+    if (event_id === null) return null
+    const metric = String(raw['지표명(metric)'] ?? '').trim()
+    if (!metric) return null  // 지표명 빈칸 → 스킵
     return {
       id:           crypto.randomUUID(),
       event_id,
-      category:     String(raw['카테고리']).trim() as KpiTarget['category'],
-      metric:       String(raw['지표명(metric)']).trim(),
+      category:     String(raw['카테고리'] ?? '').trim() as KpiTarget['category'],
+      metric,
       target_value: Number(raw['목표값']),
       unit:         String(raw['단위'] ?? '').trim() || undefined,
     }
