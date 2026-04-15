@@ -1,9 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { loadData } from '@/lib/store'
-import type { DashboardData } from '@/lib/store'
+import { useDashboardData } from '@/lib/hooks/useDashboardData'
 import dynamic from 'next/dynamic'
 
 const CompareClient = dynamic(
@@ -12,15 +10,9 @@ const CompareClient = dynamic(
 )
 
 export default function ComparePage() {
-  const [data, setData]       = useState<DashboardData | null>(null)
-  const [mounted, setMounted] = useState(false)
+  const { data, loading } = useDashboardData()
 
-  useEffect(() => {
-    setData(loadData())
-    setMounted(true)
-  }, [])
-
-  if (!mounted) return <div className="min-h-screen bg-brand-bg" />
+  if (loading && !data) return <div className="min-h-screen bg-brand-bg" />
 
   if (!data || !data.events.length) {
     return (

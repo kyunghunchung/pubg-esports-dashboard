@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { cn, formatNumber } from '@/lib/utils'
 import { parseUploadFile, type ParsedSheet } from '@/lib/import/parse-upload'
 import { saveData, clearData } from '@/lib/store'
+import { saveToSupabase } from '@/lib/db/queries'
 import { generateUploadTemplate } from '@/lib/export/template'
 
 const SHEET_LABEL: Record<ParsedSheet | 'events', string> = {
@@ -73,10 +74,23 @@ export default function UploadPage() {
     }
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!parsedRef.current) return
-    saveData(parsedRef.current.data)
-    setStep('done')
+    const data = parsedRef.current.data
+    setParsing(true)
+    try {
+      // localStorage 저장 (즉시)
+      saveData(data)
+      // Supabase 저장 (공유)
+      const { error } = await saveToSupabase(data)
+      if (error) {
+        console.error('Supabase 저장 오류:', error)
+        // Supabase 실패해도 로컬 저장은 됐으므로 계속 진행
+      }
+      setStep('done')
+    } finally {
+      setParsing(false)
+    }
   }
 
   function handleTemplateDownload() {
@@ -232,9 +246,10 @@ export default function UploadPage() {
             <div className="flex gap-3">
               <button
                 onClick={handleSave}
-                className="px-5 py-2.5 rounded-lg bg-kpi-success/20 border border-kpi-success/40 text-kpi-success text-sm font-medium hover:bg-kpi-success/30 transition-all"
+                disabled={parsing}
+                className="px-5 py-2.5 rounded-lg bg-kpi-success/20 border border-kpi-success/40 text-kpi-success text-sm font-medium hover:bg-kpi-success/30 transition-all disabled:opacity-50"
               >
-                대시보드에 적용 →
+                {parsing ? '저장 중...' : '대시보드에 적용 →'}
               </button>
               <button
                 onClick={reset}

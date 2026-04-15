@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { loadData, getViewershipTotal, getViewershipByPlatform, getSocialByPlatform, getKpiTargets } from '@/lib/store'
-import type { DashboardData } from '@/lib/store'
+import { getViewershipTotal, getViewershipByPlatform, getSocialByPlatform, getKpiTargets } from '@/lib/store'
+import { useDashboardData } from '@/lib/hooks/useDashboardData'
 import { KpiCard } from '@/components/kpi/KpiCard'
 import { TournamentFilter } from '@/components/dashboard/TournamentFilter'
 import { EventCalendar } from '@/components/EventCalendar'
@@ -19,21 +19,16 @@ const SocialPlatformChart = dynamic(
 )
 
 export default function DashboardPage() {
-  const [data, setData] = useState<DashboardData | null>(null)
+  const { data, loading } = useDashboardData()
   const [selectedId, setSelectedId] = useState<string>('')
-  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    const stored = loadData()
-    setData(stored)
-    if (stored?.events?.length) {
-      setSelectedId(stored.events[0].id)
+    if (data?.events?.length && !selectedId) {
+      setSelectedId(data.events[0].id)
     }
-    setMounted(true)
-  }, [])
+  }, [data])
 
-  // 로딩 전
-  if (!mounted) return <div className="min-h-screen bg-brand-bg" />
+  if (loading && !data) return <div className="min-h-screen bg-brand-bg" />
 
   // 데이터 없음
   if (!data || !data.events.length) {

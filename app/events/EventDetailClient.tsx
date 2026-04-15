@@ -1,10 +1,9 @@
 'use client'
 
-import { useEffect, useState, Suspense } from 'react'
+import { Suspense, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { loadData } from '@/lib/store'
-import type { DashboardData } from '@/lib/store'
+import { useDashboardData } from '@/lib/hooks/useDashboardData'
 import dynamic from 'next/dynamic'
 import { cn } from '@/lib/utils'
 
@@ -36,16 +35,10 @@ const STATUS_LABEL: Record<string, string> = {
 function EventDetailInner() {
   const searchParams = useSearchParams()
   const id = searchParams.get('id') ?? ''
-  const [data, setData]       = useState<DashboardData | null>(null)
-  const [tab, setTab]         = useState<TabKey>('viewership')
-  const [mounted, setMounted] = useState(false)
+  const { data, loading } = useDashboardData()
+  const [tab, setTab] = useState<TabKey>('viewership')
 
-  useEffect(() => {
-    setData(loadData())
-    setMounted(true)
-  }, [])
-
-  if (!mounted) return <div className="min-h-screen bg-brand-bg" />
+  if (loading && !data) return <div className="min-h-screen bg-brand-bg" />
 
   if (!data || !data.events.length) {
     return (
