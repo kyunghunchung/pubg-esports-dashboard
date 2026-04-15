@@ -140,13 +140,11 @@ function UploadContent() {
     const data = parsedRef.current.data
     setParsing(true)
     try {
-      // localStorage 저장 (즉시)
       saveData(data)
-      // Supabase 저장 (공유)
       const { error } = await saveToSupabase(data)
       if (error) {
-        console.error('Supabase 저장 오류:', error)
-        // Supabase 실패해도 로컬 저장은 됐으므로 계속 진행
+        alert(`저장 오류 (Supabase): ${error}\n\n데이터가 이 브라우저에만 저장되었습니다. 관리자에게 문의하세요.`)
+        // 에러가 있어도 로컬에는 저장됐으므로 완료 처리
       }
       setStep('done')
     } finally {
