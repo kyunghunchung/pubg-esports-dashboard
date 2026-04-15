@@ -1,0 +1,481 @@
+# PUBG Esports 실적 모니터링 대시보드
+
+> **이스포츠실 전 구성원이 PUBG Esports의 KPI와 실적을 한눈에 실시간으로 확인하는 내부 전용 플랫폼**
+
+---
+
+## 1. 프로젝트 컨텍스트
+
+- **사용 조직**: Krafton 이스포츠실 전체 구성원 (팀장 포함)
+- **목적**: 파트너십 제안용 아님 — 이스포츠실 내부 실적 모니터링 전용
+- **핵심 요구사항**:
+  - 이벤트 진행 중 실시간 뷰어십·SNS 지표 자동 갱신 (5분 주기)
+  - 이벤트별 목표값 vs 실제 달성률 항상 표시
+  - 정기 리포트(이벤트 결과 보고, 주간 요약) 자동 생성 및 Export
+- **접근 권한**: Krafton Google 계정 SSO — 외부 공개 없음
+
+---
+
+## 2. 기술 스택
+
+| 레이어 | 기술 |
+|--------|------|
+| Framework | Next.js 14 (App Router) |
+| UI | Shadcn/ui + Tailwind CSS |
+| 차트 | Recharts |
+| DB | Supabase (PostgreSQL + Realtime) |
+| 인증 | NextAuth.js (Google OAuth, Krafton 도메인 한정) |
+| API | Next.js Route Handlers |
+| Export | react-pdf + xlsx |
+| 배포 | Vercel |
+
+---
+
+## 3. 디렉토리 구조
+
+```
+/
+├── app/
+│   ├── dashboard/          # 메인 홈 — 실시간 현황 + 이벤트 캘린더
+│   ├── events/
+│   │   └── [id]/           # 이벤트 상세 — 탭별 KPI 상세
+│   ├── compare/            # 이벤트 간 비교 분석
+│   ├── reports/            # 리포트 생성 + 히스토리
+│   ├── admin/              # 데이터 입력·관리 (Editor 이상)
+│   └── api/
+│       ├── events/
+│       ├── kpis/
+│       └── reports/
+├── components/
+│   ├── charts/             # Recharts 래퍼 컴포넌트
+│   ├── kpi/                # KPI 카드, 목표 게이지, Live 배지
+│   └── ui/                 # Shadcn 컴포넌트 재export
+├── lib/
+│   ├── db/                 # Supabase 쿼리 함수
+│   ├── realtime/           # Supabase Realtime 구독 훅
+│   └── export/             # PDF·Excel 생성 로직
+└── types/
+    └── index.ts            # 전체 TypeScript 타입 정의
+```
+
+---
+
+## 4. 데이터베이스 스키마
+
+### 4.1 핵심 테이블
+
+```sql
+-- 이벤트 마스터
+CREATE TABLE events (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name         TEXT NOT NULL,              -- "PNC 2026"
+  type         TEXT NOT NULL,              -- 'PNC' | 'PGC' | 'PGS' | 'GOTF' | 'EWC' | 'ENC'
+  year         INT NOT NULL,
+  start_date   DATE NOT NULL,
+  end_date     DATE NOT NULL,
+  venue        TEXT,
+  region       TEXT,
+  status       TEXT DEFAULT 'upcoming',    -- 'upcoming' | 'live' | 'completed'
+  created_at   TIMESTAMPTZ DEFAULT now()
+);
+
+-- KPI 목표값 (이벤트 생성 시 함께 입력)
+CREATE TABLE kpi_targets (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id     UUID REFERENCES events(id) ON DELETE CASCADE,
+  category     TEXT NOT NULL,             -- 'viewership' | 'social' | 'broadcast' | 'competitive' | 'live_event'
+  metric       TEXT NOT NULL,             -- 'peak_ccv' | 'impressions' 등
+  target_value NUMERIC NOT NULL,
+  unit         TEXT                        -- '명' | '시간' | '%'
+);
+
+-- 뷰어십 KPI (실시간 수집 포함)
+CREATE TABLE viewership_kpis (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id        UUID REFERENCES events(id) ON DELETE CASCADE,
+  platform        TEXT NOT NULL,           -- 'twitch' | 'youtube' | 'afreeca' | 'total'
+  peak_ccv        BIGINT,
+  acv             BIGINT,
+  hours_watched   NUMERIC,
+  unique_viewers  BIGINT,
+  hours_broadcast NUMERIC,
+  recorded_at     TIMESTAMPTZ DEFAULT now()
+);
+
+-- 소셜 KPI
+CREATE TABLE social_kpis (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id       UUID REFERENCES events(id) ON DELETE CASCADE,
+  platform       TEXT NOT NULL,            -- 'x' | 'instagram' | 'facebook' | 'tiktok' | 'youtube'
+  impressions    BIGINT DEFAULT 0,
+  engagements    BIGINT DEFAULT 0,
+  video_views    BIGINT DEFAULT 0,
+  follower_delta INT DEFAULT 0,
+  recorded_at    TIMESTAMPTZ DEFAULT now()
+);
+
+-- 방송 KPI
+CREATE TABLE broadcast_kpis (
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id            UUID REFERENCES events(id) ON DELETE CASCADE,
+  channel_count       INT,
+  co_streamer_count   INT,
+  co_streamer_viewers BIGINT,
+  coverage_regions    INT,
+  clip_views          BIGINT,
+  recorded_at         TIMESTAMPTZ DEFAULT now()
+);
+
+-- 경쟁 KPI
+CREATE TABLE competitive_kpis (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id        UUID REFERENCES events(id) ON DELETE CASCADE,
+  team_count      INT,
+  player_count    INT,
+  country_count   INT,
+  prize_pool_usd  NUMERIC,
+  recorded_at     TIMESTAMPTZ DEFAULT now()
+);
+
+-- 현장 KPI (오프라인 이벤트 전용)
+CREATE TABLE live_event_kpis (
+  id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id           UUID REFERENCES events(id) ON DELETE CASCADE,
+  total_attendance   INT,
+  ticket_sales_rate  NUMERIC,              -- 0.0 ~ 1.0
+  avg_occupancy      NUMERIC,
+  recorded_at        TIMESTAMPTZ DEFAULT now()
+);
+
+-- 생성된 리포트 히스토리
+CREATE TABLE report_history (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title       TEXT NOT NULL,
+  type        TEXT NOT NULL,              -- 'event_result' | 'weekly' | 'annual'
+  event_ids   UUID[],
+  created_by  TEXT,
+  file_url    TEXT,
+  created_at  TIMESTAMPTZ DEFAULT now()
+);
+```
+
+### 4.2 RLS 정책 원칙
+- `viewership_kpis`, `social_kpis` 등 KPI 테이블: **Krafton 도메인 인증 사용자 전체 READ 허용**
+- `events`, `kpi_targets` INSERT/UPDATE: **Editor 역할 이상만 허용**
+- `report_history`: **전체 READ, INSERT는 인증 사용자**
+
+---
+
+## 5. 주요 타입 정의
+
+```typescript
+// types/index.ts
+
+export type EventStatus = 'upcoming' | 'live' | 'completed'
+export type EventType = 'PNC' | 'PGC' | 'PGS' | 'GOTF' | 'EWC' | 'ENC'
+export type KpiCategory = 'viewership' | 'social' | 'broadcast' | 'competitive' | 'live_event'
+export type SocialPlatform = 'x' | 'instagram' | 'facebook' | 'tiktok' | 'youtube'
+export type ViewershipPlatform = 'twitch' | 'youtube' | 'afreeca' | 'total'
+export type ReportType = 'event_result' | 'weekly' | 'annual'
+
+export interface Event {
+  id: string
+  name: string
+  type: EventType
+  year: number
+  start_date: string
+  end_date: string
+  venue?: string
+  region?: string
+  status: EventStatus
+}
+
+export interface KpiTarget {
+  event_id: string
+  category: KpiCategory
+  metric: string
+  target_value: number
+  unit?: string
+}
+
+export interface ViewershipKpi {
+  id: string
+  event_id: string
+  platform: ViewershipPlatform
+  peak_ccv?: number
+  acv?: number
+  hours_watched?: number
+  unique_viewers?: number
+  hours_broadcast?: number
+  recorded_at: string
+}
+
+export interface SocialKpi {
+  id: string
+  event_id: string
+  platform: SocialPlatform
+  impressions: number
+  engagements: number
+  video_views: number
+  follower_delta: number
+  recorded_at: string
+}
+
+// 목표 대비 달성률 계산 결과
+export interface KpiAchievement {
+  metric: string
+  target: number
+  actual: number
+  rate: number           // actual / target * 100
+  status: 'danger' | 'warning' | 'success'  // <80 | 80~99 | 100+
+  unit?: string
+}
+```
+
+---
+
+## 6. 페이지별 구현 스펙
+
+### 6.1 메인 대시보드 `/dashboard`
+
+**역할**: 이스포츠실 구성원이 첫 접속 시 전체 현황을 즉시 파악하는 홈
+
+**레이아웃 (위에서 아래)**:
+1. **Live 배너** — `status = 'live'`인 이벤트가 있으면 상단 전체 너비 빨간 배너 표시
+2. **핵심 KPI 카드 4종** — Peak CCV, Total Hours Watched, Social Impressions, 총 관객 수
+   - 각 카드에 목표 달성률(%) + YoY 증감 배지
+3. **뷰어십 실시간 차트** — 진행 중 이벤트의 일별 CCV LineChart (Supabase Realtime, 5분 갱신)
+4. **소셜 채널별 Engagement 바 차트**
+5. **이벤트 캘린더** — 연간 이벤트 타임라인 (upcoming/live/completed 컬러 코딩)
+
+**실시간 동작**:
+```typescript
+// lib/realtime/useViewershipRealtime.ts
+// status='live' 이벤트가 있을 때만 Supabase channel 구독
+// 5분마다 viewership_kpis 최신 row 반영
+```
+
+---
+
+### 6.2 이벤트 상세 `/events/[id]`
+
+**탭 구조**:
+
+| 탭 | 주요 컴포넌트 |
+|----|-------------|
+| 📺 Viewership | 목표 달성 배너 + 일별 CCV LineChart + 플랫폼 분포 DonutChart |
+| 📱 Social | 목표 달성 배너 + 플랫폼별 스택 BarChart + 일별 ER LineChart |
+| 📡 Broadcast | 채널 유형별 분포 표 + 지역 커버리지 |
+| ⚔️ Competitive | 지역별 팀 분포 PieChart + 순위 테이블 |
+| 🎟️ Live Event | 목표 달성 배너 + 일별 입장 BarChart + 좌석 점유율 |
+
+**목표 달성 배너 컴포넌트** (모든 탭 상단 고정):
+```
+[ 목표: 500,000명 ]  [ 현재: 423,000명 ]  [ 달성률: 84.6% ▲ ]
+```
+- 달성률 < 80% → `text-red-500` / bg 빨간 tint
+- 80~99% → `text-yellow-500`
+- 100%+ → `text-green-500`
+
+---
+
+### 6.3 비교 페이지 `/compare`
+
+- 드롭다운으로 최대 3개 이벤트 선택
+- **비교 테이블**: 절댓값 + YoY 증감(%) + 목표 달성률(%) 컬럼 동시 표시
+- **레이더 차트**: 5개 카테고리 달성도 비교 (Recharts RadarChart)
+- **트렌드 오버레이**: 이벤트별 CCV/Impressions 시계열 동일 축에 표시
+- 카테고리별 최고 실적 이벤트 셀 하이라이트 (`bg-blue-900/40`)
+
+---
+
+### 6.4 리포트 페이지 `/reports`
+
+**리포트 유형**:
+- `event_result`: 이벤트 결과 보고서 — 전체 KPI + 목표 달성 현황
+- `weekly`: 주간 실적 요약 — 이번 주 활성 이벤트 KPI 스냅샷
+- `annual`: 연간 실적 총결산 — 연도별 전체 이벤트 비교
+
+**Export 흐름**:
+1. 유형 선택 → 이벤트/기간 선택 → 미리보기 렌더링
+2. `PDF Export` 버튼 → `react-pdf` 로 서버사이드 생성
+3. `Excel Export` 버튼 → `xlsx` 라이브러리로 시트별 데이터 출력
+4. 생성 완료 → `report_history` 테이블에 저장 + 다운로드
+
+**정기 리포트 스케줄** (v1 범위 내):
+- Vercel Cron Job으로 매주 월요일 09:00 KST 자동 생성
+- 생성된 리포트 Slack webhook으로 알림 발송 (선택적)
+
+---
+
+### 6.5 Admin 페이지 `/admin`
+
+> **Editor 이상 권한만 접근 가능** — middleware에서 role 체크
+
+**서브 페이지**:
+- `/admin/events` — 이벤트 등록/편집 + KPI 목표값 입력
+- `/admin/data` — 카테고리별 KPI 데이터 직접 입력 폼
+- `/admin/upload` — Excel CSV 일괄 업로드 (파싱 → 검증 → DB 반영)
+- `/admin/logs` — 데이터 수정 감사 로그
+
+---
+
+## 7. 달성률 계산 로직
+
+```typescript
+// lib/kpi/achievement.ts
+
+export function calcAchievement(actual: number, target: number): KpiAchievement {
+  const rate = target > 0 ? (actual / target) * 100 : 0
+  return {
+    rate,
+    status: rate < 80 ? 'danger' : rate < 100 ? 'warning' : 'success'
+  }
+}
+
+// 달성률 → 색상 클래스
+export function achievementColor(status: KpiAchievement['status']) {
+  return {
+    danger:  'text-red-400 bg-red-950/40',
+    warning: 'text-yellow-400 bg-yellow-950/40',
+    success: 'text-green-400 bg-green-950/40',
+  }[status]
+}
+```
+
+---
+
+## 8. 실시간 데이터 패턴
+
+```typescript
+// lib/realtime/useViewershipRealtime.ts
+import { useEffect, useState } from 'react'
+import { createClient } from '@/lib/db/supabase-client'
+
+export function useViewershipRealtime(eventId: string, isLive: boolean) {
+  const [data, setData] = useState<ViewershipKpi[]>([])
+  const supabase = createClient()
+
+  useEffect(() => {
+    if (!isLive) return
+
+    const channel = supabase
+      .channel(`viewership-${eventId}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'viewership_kpis',
+        filter: `event_id=eq.${eventId}`,
+      }, (payload) => {
+        setData(prev => [...prev, payload.new as ViewershipKpi])
+      })
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [eventId, isLive])
+
+  return data
+}
+```
+
+---
+
+## 9. 데이터 수집 방법
+
+| 카테고리 | 소스 | 라이브 중 | 이벤트 후 |
+|---------|------|----------|---------|
+| 뷰어십 | Esports Charts, Twitch/YT Analytics | 5분 갱신 | D+3 최종 확정 |
+| 소셜 | Sprout Social / 자체 리포트 | 일 1회 업로드 | 이벤트 후 확정 |
+| 방송 | 내부 방송팀 | 당일 수동 입력 | 이벤트 후 확정 |
+| 현장 | 티켓 플랫폼 (인터파크 등) | 일 1회 수동 입력 | 이벤트 후 확정 |
+| 경쟁 | 내부 운영팀 | 이벤트 전 확정 | 결과 업데이트 |
+
+---
+
+## 10. 디자인 시스템
+
+### 컬러 (Tailwind config 커스텀)
+```js
+// tailwind.config.js
+colors: {
+  brand: {
+    bg:       '#0A0E1A',   // 메인 배경
+    surface:  '#111827',   // 카드·패널
+    border:   '#1F2937',   // 구분선
+    accent:   '#3B82F6',   // Primary 강조
+  },
+  kpi: {
+    success: '#10B981',    // 달성률 100%+
+    warning: '#F59E0B',    // 달성률 80~99%
+    danger:  '#EF4444',    // 달성률 <80%
+    live:    '#EF4444',    // LIVE 배지
+  }
+}
+```
+
+### 핵심 컴포넌트 목록
+| 컴포넌트 | 파일 | 역할 |
+|---------|------|------|
+| `<LiveBadge>` | `components/kpi/LiveBadge.tsx` | 빨간 LIVE 뱃지 + 펄스 애니메이션 |
+| `<KpiCard>` | `components/kpi/KpiCard.tsx` | 지표명 / 현재값 / 달성률 / YoY 배지 |
+| `<GoalGauge>` | `components/kpi/GoalGauge.tsx` | 목표 대비 프로그레스 바 (색상 자동) |
+| `<AchievementBanner>` | `components/kpi/AchievementBanner.tsx` | 탭 상단 고정 목표/현재/달성률 배너 |
+| `<CcvLineChart>` | `components/charts/CcvLineChart.tsx` | 일별 CCV 추이 LineChart |
+| `<PlatformDonut>` | `components/charts/PlatformDonut.tsx` | 플랫폼 분포 DonutChart |
+| `<SocialBarChart>` | `components/charts/SocialBarChart.tsx` | 채널별 Engagement 스택 BarChart |
+| `<EventCalendar>` | `components/EventCalendar.tsx` | 연간 이벤트 타임라인 |
+| `<AutoRefreshBadge>` | `components/kpi/AutoRefreshBadge.tsx` | 마지막 갱신 시각 표시 |
+
+---
+
+## 11. 환경 변수
+
+```bash
+# .env.local
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+
+NEXTAUTH_URL=
+NEXTAUTH_SECRET=
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+
+# 허용 도메인 (Krafton 사내 계정만)
+ALLOWED_EMAIL_DOMAIN=krafton.com
+
+# Slack (리포트 알림, 선택)
+SLACK_WEBHOOK_URL=
+
+# Vercel Cron (주간 리포트 자동 생성)
+CRON_SECRET=
+```
+
+---
+
+## 12. 구현 순서 (Phase)
+
+| Phase | 기간 | 작업 내용 |
+|-------|------|---------|
+| **0. 환경 설정** | Day 1 | Next.js 초기화, Supabase 프로젝트 생성, NextAuth Google OAuth, 디렉토리 구조, 타입 정의 |
+| **1. DB + API** | Day 2–3 | 스키마 마이그레이션, 시드 데이터 (PNC 2025 샘플), Route Handlers, RLS 정책 |
+| **2. 메인 대시보드** | Day 4–6 | KpiCard, GoalGauge, CcvLineChart, EventCalendar, LiveBadge, 실시간 구독 훅 |
+| **3. 이벤트 상세** | Day 7–9 | 탭 레이아웃, AchievementBanner, 카테고리별 차트, 목표 달성률 로직 |
+| **4. 비교·리포트** | Day 10–12 | 비교 페이지 (RadarChart, 오버레이), 리포트 생성기 (PDF/Excel), 히스토리 |
+| **5. Admin·배포** | Day 13–14 | Admin 입력 폼, CSV 업로드, Vercel 배포, Cron 설정, Slack webhook |
+
+---
+
+## 13. 코드 컨벤션
+
+- **파일명**: kebab-case (`kpi-card.tsx`, `use-viewership-realtime.ts`)
+- **컴포넌트명**: PascalCase
+- **DB 쿼리 함수**: `lib/db/` 에 모아서 관리, 컴포넌트에서 직접 Supabase 호출 금지
+- **Server Component 기본**: 데이터 페칭은 Server Component에서 — 실시간/인터랙션만 `'use client'`
+- **에러 처리**: 모든 DB 쿼리 함수는 `{ data, error }` 형태로 반환
+- **숫자 포맷**: `Intl.NumberFormat('ko-KR')` 사용 (1,234,567명 형식)
+- **날짜**: `date-fns` 사용, 모든 DB 저장은 UTC, 표시는 KST 변환
+
+---
+
+*이 파일은 Claude Code가 프로젝트 전체 컨텍스트를 파악하기 위한 단일 소스입니다. 구현 진행에 따라 업데이트하세요.*

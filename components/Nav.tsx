@@ -1,0 +1,40 @@
+'use client'
+
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import { cn } from '@/lib/utils'
+
+const NAV = [
+  { href: '/dashboard',  label: '대시보드' },
+  { href: '/community',  label: '커뮤니티 동향' },
+  { href: '/streamers',  label: '스트리머 대시보드' },
+  { href: '/upload',     label: '데이터 업로드' },
+  { href: '/admin',      label: 'Admin' },
+]
+
+export function Nav() {
+  const pathname = usePathname()
+  return (
+    <nav className="border-b border-brand-border bg-brand-surface/50 backdrop-blur sticky top-0 z-10">
+      <div className="max-w-7xl mx-auto px-6 flex items-center gap-6 h-12">
+        <span className="text-xs font-bold text-brand-accent tracking-widest uppercase">PUBG Esports</span>
+        <div className="flex items-center gap-1">
+          {NAV.map(({ href, label }) => (
+            <Link
+              key={href}
+              href={href}
+              className={cn(
+                'px-3 py-1.5 rounded-md text-sm transition-all',
+                pathname.startsWith(href)
+                  ? 'text-white bg-white/10'
+                  : 'text-gray-400 hover:text-white'
+              )}
+            >
+              {label}
+            </Link>
+          ))}
+        </div>
+      </div>
+    </nav>
+  )
+}
