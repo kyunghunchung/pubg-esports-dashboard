@@ -155,12 +155,19 @@ function UploadContent() {
   }
 
   function handleTemplateDownload() {
-    const bytes = generateUploadTemplate()
-    const blob  = new Blob([bytes.buffer as ArrayBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-    const url   = URL.createObjectURL(blob)
-    const a     = document.createElement('a')
-    a.href = url; a.download = 'PUBG_KPI_템플릿.xlsx'; a.click()
-    URL.revokeObjectURL(url)
+    try {
+      const bytes = generateUploadTemplate()
+      const blob  = new Blob([bytes.buffer as ArrayBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+      const url   = URL.createObjectURL(blob)
+      const a     = document.createElement('a')
+      a.href = url; a.download = 'PUBG_KPI_템플릿.xlsx'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      alert(`템플릿 생성 오류: ${String(e)}`)
+    }
   }
 
   function handleClear() {
