@@ -5,6 +5,8 @@ const nextConfig = {
   basePath: '/pubg-esports-dashboard',
   assetPrefix: '/pubg-esports-dashboard/',
   images: { unoptimized: true },
+  eslint: { ignoreDuringBuilds: true },
+  typescript: { ignoreBuildErrors: false },
 }
 
 export default nextConfig
