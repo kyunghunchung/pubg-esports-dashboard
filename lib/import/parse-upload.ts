@@ -1,6 +1,14 @@
 import * as XLSX from 'xlsx'
 import type { Event, ViewershipKpi, SocialKpi, BroadcastKpi, CompetitiveKpi, LiveEventKpi, KpiTarget } from '@/types'
 import type { DashboardData } from '@/lib/store'
+import {
+  guessEventType,
+  normalizeViewershipPlatform,
+  normalizeSocialPlatform,
+  MIN_YEAR,
+  VIEWERSHIP_PLATFORMS,
+  SOCIAL_PLATFORMS,
+} from '@/lib/config/constants'
 
 export type ParsedSheet = 'viewership' | 'social' | 'broadcast' | 'competitive' | 'live_event' | 'kpi_targets'
 
@@ -33,17 +41,7 @@ function findEventId(name: string, events: Event[]): string | null {
   return events.find(e => e.name.toLowerCase() === normalized)?.id ?? null
 }
 
-// 대회명으로 EventType 추측
-function guessEventType(name: string): Event['type'] {
-  const n = name.toUpperCase()
-  if (/PGC|GLOBAL CHAMPIONSHIP/.test(n)) return 'PGC'
-  if (/PNC|NATIONS CUP/.test(n))         return 'PNC'
-  if (/PGS|GLOBAL SERIES/.test(n))       return 'PGS'
-  if (/GOTF/.test(n))                    return 'GOTF'
-  if (/EWC|ESPORTS WORLD CUP/.test(n))   return 'EWC'
-  if (/ENC/.test(n))                     return 'ENC'
-  return 'PGS'
-}
+// guessEventType은 lib/config/constants.ts에서 import
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 레거시 파서 — "PUBG Esports 뷰어십 (20XX-20XX).xlsx" 형식
@@ -227,9 +225,12 @@ function parseTemplateFile(wb: XLSX.WorkBook): ParseResult {
 
   const viewership = processSheet<ViewershipKpi>('뷰어십', 'viewership', (raw, rowIdx) => {
     const event_id = requireEvent(raw, '뷰어십', rowIdx)
-    const platform = String(raw['플랫폼'] ?? '').trim()
-    if (!['twitch', 'youtube', 'afreeca', 'total'].includes(platform))
-      throw new Error(`플랫폼 값 오류: '${platform}'`)
+    const platformInput = String(raw['플랫폼'] ?? '').trim()
+    const platform = normalizeViewershipPlatform(platformInput)
+    if (!platform) {
+      const valid = Object.keys(VIEWERSHIP_PLATFORMS).join(' / ')
+      throw new Error(`플랫폼 값 오류: '${platformInput}'. 허용값: ${valid}`)
+    }
     return {
       id:              crypto.randomUUID(),
       event_id,
@@ -245,9 +246,12 @@ function parseTemplateFile(wb: XLSX.WorkBook): ParseResult {
 
   const social = processSheet<SocialKpi>('소셜', 'social', (raw, rowIdx) => {
     const event_id = requireEvent(raw, '소셜', rowIdx)
-    const platform = String(raw['플랫폼'] ?? '').trim()
-    if (!['x', 'instagram', 'facebook', 'tiktok', 'youtube'].includes(platform))
-      throw new Error(`플랫폼 값 오류: '${platform}'`)
+    const platformInput = String(raw['플랫폼'] ?? '').trim()
+    const platform = normalizeSocialPlatform(platformInput)
+    if (!platform) {
+      const valid = Object.keys(SOCIAL_PLATFORMS).join(' / ')
+      throw new Error(`플랫폼 값 오류: '${platformInput}'. 허용값: ${valid}`)
+    }
     return {
       id:             crypto.randomUUID(),
       event_id,

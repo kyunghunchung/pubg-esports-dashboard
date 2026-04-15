@@ -8,6 +8,59 @@ import { saveData, clearData } from '@/lib/store'
 import { saveToSupabase } from '@/lib/db/queries'
 import { generateUploadTemplate } from '@/lib/export/template'
 
+// ── 업로드 패스워드 게이트 ──────────────────────────────────
+// NEXT_PUBLIC_UPLOAD_PASSWORD 환경변수가 설정된 경우에만 인증 요구
+const UPLOAD_PASSWORD = process.env.NEXT_PUBLIC_UPLOAD_PASSWORD ?? ''
+
+function PasswordGate({ onUnlock }: { onUnlock: () => void }) {
+  const [input, setInput] = useState('')
+  const [error, setError] = useState(false)
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (input === UPLOAD_PASSWORD) {
+      onUnlock()
+    } else {
+      setError(true)
+      setInput('')
+    }
+  }
+
+  return (
+    <main className="min-h-screen bg-brand-bg text-white flex items-center justify-center">
+      <div className="w-full max-w-sm px-6">
+        <div className="bg-brand-surface border border-brand-border rounded-xl p-8 space-y-6">
+          <div className="text-center">
+            <p className="text-2xl mb-2">🔒</p>
+            <h1 className="text-lg font-bold">업로드 접근 제한</h1>
+            <p className="text-sm text-gray-400 mt-1">업로드 권한이 있는 사용자만 접근 가능합니다</p>
+          </div>
+          <form onSubmit={handleSubmit} className="space-y-3">
+            <input
+              type="password"
+              value={input}
+              onChange={e => { setInput(e.target.value); setError(false) }}
+              placeholder="패스워드 입력"
+              autoFocus
+              className={cn(
+                'w-full px-4 py-2.5 rounded-lg bg-brand-bg border text-white text-sm placeholder-gray-600 outline-none transition-colors',
+                error ? 'border-kpi-danger' : 'border-brand-border focus:border-brand-accent'
+              )}
+            />
+            {error && <p className="text-xs text-kpi-danger">패스워드가 올바르지 않습니다</p>}
+            <button
+              type="submit"
+              className="w-full px-4 py-2.5 rounded-lg bg-brand-accent text-white text-sm font-medium hover:bg-brand-accent/80 transition-all"
+            >
+              확인
+            </button>
+          </form>
+        </div>
+      </div>
+    </main>
+  )
+}
+
 const SHEET_LABEL: Record<ParsedSheet | 'events', string> = {
   events:      '이벤트',
   viewership:  '뷰어십',
@@ -29,6 +82,14 @@ interface PreviewState {
 }
 
 export default function UploadPage() {
+  const [unlocked, setUnlocked] = useState(!UPLOAD_PASSWORD)
+
+  if (!unlocked) return <PasswordGate onUnlock={() => setUnlocked(true)} />
+
+  return <UploadContent />
+}
+
+function UploadContent() {
   const router      = useRouter()
   const inputRef    = useRef<HTMLInputElement>(null)
   const [file, setFile]         = useState<File | null>(null)

@@ -33,13 +33,13 @@ export const MOCK_VIEWERSHIP: Record<string, ViewershipKpi[]> = {
     { id: 'v1', event_id: '11111111-0000-0000-0000-000000000001', platform: 'total',   peak_ccv: 423000, acv: 187000, hours_watched: 3712000, unique_viewers: 1840000, hours_broadcast: 90,  recorded_at: '2025-06-29T12:00:00Z' },
     { id: 'v2', event_id: '11111111-0000-0000-0000-000000000001', platform: 'twitch',  peak_ccv: 210000, acv: 95000,  hours_watched: 1820000, unique_viewers: 950000,  hours_broadcast: 90,  recorded_at: '2025-06-29T12:00:00Z' },
     { id: 'v3', event_id: '11111111-0000-0000-0000-000000000001', platform: 'youtube', peak_ccv: 150000, acv: 68000,  hours_watched: 1380000, unique_viewers: 720000,  hours_broadcast: 90,  recorded_at: '2025-06-29T12:00:00Z' },
-    { id: 'v4', event_id: '11111111-0000-0000-0000-000000000001', platform: 'afreeca', peak_ccv: 63000,  acv: 24000,  hours_watched: 512000,  unique_viewers: 170000,  hours_broadcast: 90,  recorded_at: '2025-06-29T12:00:00Z' },
+    { id: 'v4', event_id: '11111111-0000-0000-0000-000000000001', platform: 'sooptv', peak_ccv: 63000,  acv: 24000,  hours_watched: 512000,  unique_viewers: 170000,  hours_broadcast: 90,  recorded_at: '2025-06-29T12:00:00Z' },
   ],
   '11111111-0000-0000-0000-000000000003': [
     { id: 'v5', event_id: '11111111-0000-0000-0000-000000000003', platform: 'total',   peak_ccv: 318000, acv: 142000, hours_watched: 2240000, unique_viewers: 1120000, hours_broadcast: 42,  recorded_at: '2025-03-16T12:00:00Z' },
     { id: 'v6', event_id: '11111111-0000-0000-0000-000000000003', platform: 'twitch',  peak_ccv: 168000, acv: 78000,  hours_watched: 1180000, unique_viewers: 620000,  hours_broadcast: 42,  recorded_at: '2025-03-16T12:00:00Z' },
     { id: 'v7', event_id: '11111111-0000-0000-0000-000000000003', platform: 'youtube', peak_ccv: 102000, acv: 46000,  hours_watched: 820000,  unique_viewers: 380000,  hours_broadcast: 42,  recorded_at: '2025-03-16T12:00:00Z' },
-    { id: 'v8', event_id: '11111111-0000-0000-0000-000000000003', platform: 'afreeca', peak_ccv: 48000,  acv: 18000,  hours_watched: 240000,  unique_viewers: 120000,  hours_broadcast: 42,  recorded_at: '2025-03-16T12:00:00Z' },
+    { id: 'v8', event_id: '11111111-0000-0000-0000-000000000003', platform: 'sooptv', peak_ccv: 48000,  acv: 18000,  hours_watched: 240000,  unique_viewers: 120000,  hours_broadcast: 42,  recorded_at: '2025-03-16T12:00:00Z' },
   ],
 }
 

@@ -1,8 +1,11 @@
 export type EventStatus = 'upcoming' | 'live' | 'completed'
-export type EventType = 'PNC' | 'PGC' | 'PGS' | 'GOTF' | 'EWC' | 'ENC'
+// 글로벌: PGS | PNC | PGC | EWC | PMI(Players Masters Invitational)  /  지역: Regional
+export type EventType = 'PGS' | 'PNC' | 'PGC' | 'EWC' | 'PMI' | 'Regional'
 export type KpiCategory = 'viewership' | 'social' | 'broadcast' | 'competitive' | 'live_event'
+// 소셜 플랫폼 (lib/config/constants.ts SOCIAL_PLATFORMS와 동기화)
 export type SocialPlatform = 'x' | 'instagram' | 'facebook' | 'tiktok' | 'youtube'
-export type ViewershipPlatform = 'twitch' | 'youtube' | 'afreeca' | 'total'
+// 뷰어십 플랫폼 (lib/config/constants.ts VIEWERSHIP_PLATFORMS와 동기화)
+export type ViewershipPlatform = 'twitch' | 'youtube' | 'sooptv' | 'chzzk' | 'kick' | 'nimotv' | 'total'
 export type ReportType = 'event_result' | 'weekly' | 'annual'
 
 export interface Event {
