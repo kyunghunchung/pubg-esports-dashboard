@@ -10,6 +10,7 @@ export interface ParseResult {
   data:   DashboardData
   errors: ParseError[]
   summary: Record<ParsedSheet | 'events', number>
+  format?: 'template' | 'legacy'
 }
 
 // Excel serial date → ISO string
@@ -22,7 +23,7 @@ function toDate(val: unknown): string {
   return new Date(String(val)).toISOString()
 }
 
-// 이벤트명 + 연도 → 결정론적 ID (재업로드 시 중복 방지)
+// 이벤트명 + 연도 → 결정론적 ID
 function makeEventId(name: string, year: number | string): string {
   return name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_') + '_' + year
 }
@@ -32,14 +33,143 @@ function findEventId(name: string, events: Event[]): string | null {
   return events.find(e => e.name.toLowerCase() === normalized)?.id ?? null
 }
 
-export function parseUploadFile(buffer: ArrayBuffer): ParseResult {
-  const wb = XLSX.read(buffer, { type: 'array' })
+// 대회명으로 EventType 추측
+function guessEventType(name: string): Event['type'] {
+  const n = name.toUpperCase()
+  if (/PGC|GLOBAL CHAMPIONSHIP/.test(n)) return 'PGC'
+  if (/PNC|NATIONS CUP/.test(n))         return 'PNC'
+  if (/PGS|GLOBAL SERIES/.test(n))       return 'PGS'
+  if (/GOTF/.test(n))                    return 'GOTF'
+  if (/EWC|ESPORTS WORLD CUP/.test(n))   return 'EWC'
+  if (/ENC/.test(n))                     return 'ENC'
+  return 'PGS'
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 레거시 파서 — "PUBG Esports 뷰어십 (20XX-20XX).xlsx" 형식
+// 시트: '글로벌 대회' | '지역 대회'
+// ─────────────────────────────────────────────────────────────────────────────
+function parseLegacyFile(wb: XLSX.WorkBook): ParseResult {
+  const events: Event[] = []
+  const viewership: ViewershipKpi[] = []
   const errors: ParseError[] = []
   const summary: Record<ParsedSheet | 'events', number> = {
     events: 0, viewership: 0, social: 0, broadcast: 0, competitive: 0, live_event: 0, kpi_targets: 0,
   }
 
-  // ── 1. 이벤트 시트 파싱 ───────────────────────────────────
+  const nowYear = new Date().getFullYear()
+
+  function upsertEvent(name: string, year: number, region?: string): string {
+    const id = makeEventId(name, year)
+    if (!events.find(e => e.id === id)) {
+      events.push({
+        id,
+        name,
+        type:       guessEventType(name),
+        year,
+        start_date: `${year}-01-01`,
+        end_date:   `${year}-12-31`,
+        region,
+        status:     year < nowYear ? 'completed' : year === nowYear ? 'live' : 'upcoming',
+      })
+      summary.events++
+    }
+    return id
+  }
+
+  // ── 글로벌 대회 ───────────────────────────────────────────
+  const globalWs = wb.Sheets['글로벌 대회']
+  if (globalWs) {
+    const rows = XLSX.utils.sheet_to_json<unknown[]>(globalWs, { header: 1, defval: '' }) as unknown[][]
+    rows.forEach((row, i) => {
+      if (i === 0) return // 헤더 스킵
+      const year = typeof row[0] === 'number' ? row[0] : 0
+      const name = String(row[1] ?? '').trim()
+      if (!year || !name || name.includes('──')) return // 구분자 스킵
+
+      const pcv  = typeof row[2] === 'number' ? row[2] : undefined
+      const accv = typeof row[3] === 'number' ? row[3] : undefined
+      const uv   = typeof row[4] === 'number' ? row[4] : undefined
+
+      if (!pcv && !accv) return // 숫자 데이터 없으면 스킵 (설명 행)
+
+      try {
+        const event_id = upsertEvent(name, year)
+        viewership.push({
+          id:             crypto.randomUUID(),
+          event_id,
+          platform:       'total',
+          peak_ccv:       pcv,
+          acv:            accv,
+          unique_viewers: uv,
+          recorded_at:    new Date(year, 11, 31).toISOString(),
+        })
+        summary.viewership++
+      } catch (e) {
+        errors.push({ sheet: '글로벌 대회', row: i + 1, message: String(e) })
+      }
+    })
+  }
+
+  // ── 지역 대회 ──────────────────────────────────────────────
+  const localWs = wb.Sheets['지역 대회']
+  if (localWs) {
+    const rows = XLSX.utils.sheet_to_json<unknown[]>(localWs, { header: 1, defval: '' }) as unknown[][]
+    rows.forEach((row, i) => {
+      if (i === 0) return
+      const year   = typeof row[0] === 'number' ? row[0] : 0
+      const name   = String(row[1] ?? '').trim()
+      if (!year || !name || name.includes('──')) return
+
+      const region = String(row[2] ?? '').trim() || undefined
+      const pcv    = typeof row[3] === 'number' ? row[3] : undefined
+      if (!pcv) return // "-" 또는 빈 값 스킵
+
+      try {
+        const event_id = upsertEvent(name, year, region)
+        // 이미 글로벌 대회 시트에서 뷰어십 데이터가 들어온 경우 중복 추가 안 함
+        if (!viewership.find(v => v.event_id === event_id)) {
+          viewership.push({
+            id:         crypto.randomUUID(),
+            event_id,
+            platform:   'total',
+            peak_ccv:   pcv,
+            recorded_at: new Date(year, 11, 31).toISOString(),
+          })
+          summary.viewership++
+        }
+      } catch (e) {
+        errors.push({ sheet: '지역 대회', row: i + 1, message: String(e) })
+      }
+    })
+  }
+
+  return {
+    data: {
+      events,
+      viewership,
+      social:      [],
+      broadcast:   [],
+      competitive: [],
+      live_event:  [],
+      kpi_targets: [],
+      uploadedAt:  new Date().toISOString(),
+    },
+    errors,
+    summary,
+    format: 'legacy',
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 템플릿 파서 (기존)
+// ─────────────────────────────────────────────────────────────────────────────
+function parseTemplateFile(wb: XLSX.WorkBook): ParseResult {
+  const errors: ParseError[] = []
+  const summary: Record<ParsedSheet | 'events', number> = {
+    events: 0, viewership: 0, social: 0, broadcast: 0, competitive: 0, live_event: 0, kpi_targets: 0,
+  }
+
   const events: Event[] = []
   const evWs = wb.Sheets['이벤트']
   if (evWs) {
@@ -58,7 +188,7 @@ export function parseUploadFile(buffer: ArrayBuffer): ParseResult {
           end_date:   String(raw['종료일'] ?? '').trim(),
           venue:      String(raw['장소'] ?? '').trim() || undefined,
           region:     String(raw['지역'] ?? '').trim() || undefined,
-          status:     (String(raw['상태'] ?? 'completed').trim()) as Event['status'],
+          status:     String(raw['상태'] ?? 'completed').trim() as Event['status'],
         })
         summary.events++
       } catch (e) {
@@ -67,7 +197,6 @@ export function parseUploadFile(buffer: ArrayBuffer): ParseResult {
     })
   }
 
-  // ── 헬퍼 ─────────────────────────────────────────────────
   function processSheet<T>(
     sheetName: string,
     target: ParsedSheet,
@@ -96,7 +225,6 @@ export function parseUploadFile(buffer: ArrayBuffer): ParseResult {
     return id
   }
 
-  // ── 2. 뷰어십 ─────────────────────────────────────────────
   const viewership = processSheet<ViewershipKpi>('뷰어십', 'viewership', (raw, rowIdx) => {
     const event_id = requireEvent(raw, '뷰어십', rowIdx)
     const platform = String(raw['플랫폼'] ?? '').trim()
@@ -115,7 +243,6 @@ export function parseUploadFile(buffer: ArrayBuffer): ParseResult {
     }
   })
 
-  // ── 3. 소셜 ───────────────────────────────────────────────
   const social = processSheet<SocialKpi>('소셜', 'social', (raw, rowIdx) => {
     const event_id = requireEvent(raw, '소셜', rowIdx)
     const platform = String(raw['플랫폼'] ?? '').trim()
@@ -133,7 +260,6 @@ export function parseUploadFile(buffer: ArrayBuffer): ParseResult {
     }
   })
 
-  // ── 4. 방송 ───────────────────────────────────────────────
   const broadcast = processSheet<BroadcastKpi>('방송', 'broadcast', (raw, rowIdx) => {
     const event_id = requireEvent(raw, '방송', rowIdx)
     return {
@@ -148,7 +274,6 @@ export function parseUploadFile(buffer: ArrayBuffer): ParseResult {
     }
   })
 
-  // ── 5. 경쟁 ───────────────────────────────────────────────
   const competitive = processSheet<CompetitiveKpi>('경쟁', 'competitive', (raw, rowIdx) => {
     const event_id = requireEvent(raw, '경쟁', rowIdx)
     return {
@@ -162,7 +287,6 @@ export function parseUploadFile(buffer: ArrayBuffer): ParseResult {
     }
   })
 
-  // ── 6. 현장 ───────────────────────────────────────────────
   const live_event = processSheet<LiveEventKpi>('현장', 'live_event', (raw, rowIdx) => {
     const event_id = requireEvent(raw, '현장', rowIdx)
     return {
@@ -175,7 +299,6 @@ export function parseUploadFile(buffer: ArrayBuffer): ParseResult {
     }
   })
 
-  // ── 7. KPI 목표값 ──────────────────────────────────────────
   const kpi_targets = processSheet<KpiTarget>('KPI목표값', 'kpi_targets', (raw, rowIdx) => {
     const event_id = requireEvent(raw, 'KPI목표값', rowIdx)
     return {
@@ -192,5 +315,19 @@ export function parseUploadFile(buffer: ArrayBuffer): ParseResult {
     data: { events, viewership, social, broadcast, competitive, live_event, kpi_targets, uploadedAt: new Date().toISOString() },
     errors,
     summary,
+    format: 'template',
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 진입점 — 파일 형식 자동 감지
+// ─────────────────────────────────────────────────────────────────────────────
+export function parseUploadFile(buffer: ArrayBuffer): ParseResult {
+  const wb = XLSX.read(buffer, { type: 'array' })
+
+  // 레거시 형식 감지: '글로벌 대회' 또는 '지역 대회' 시트가 있으면 레거시
+  const isLegacy = wb.SheetNames.includes('글로벌 대회') || wb.SheetNames.includes('지역 대회')
+  if (isLegacy) return parseLegacyFile(wb)
+
+  return parseTemplateFile(wb)
 }

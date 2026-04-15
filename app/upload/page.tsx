@@ -20,10 +20,11 @@ const SHEET_LABEL: Record<ParsedSheet | 'events', string> = {
 type Step = 'upload' | 'preview' | 'done'
 
 interface PreviewState {
-  summary:   Record<string, number>
-  errors:    { sheet: string; row: number; message: string }[]
-  totalRows: number
+  summary:    Record<string, number>
+  errors:     { sheet: string; row: number; message: string }[]
+  totalRows:  number
   sampleRows: { sheet: string; values: string[] }[]
+  format?:    'template' | 'legacy'
 }
 
 export default function UploadPage() {
@@ -63,7 +64,7 @@ export default function UploadPage() {
       if (result.data.viewership.length)  sampleRows.push({ sheet: '뷰어십',     values: [result.data.viewership[0].platform, formatNumber(result.data.viewership[0].peak_ccv ?? 0)] })
       if (result.data.social.length)      sampleRows.push({ sheet: '소셜',       values: [result.data.social[0].platform, formatNumber(result.data.social[0].impressions)] })
 
-      setPreview({ summary: result.summary, errors: result.errors, totalRows, sampleRows })
+      setPreview({ summary: result.summary, errors: result.errors, totalRows, sampleRows, format: result.format })
       setStep('preview')
     } catch (e) {
       alert(`파싱 오류: ${String(e)}`)
@@ -182,6 +183,13 @@ export default function UploadPage() {
           <section className="bg-brand-surface border border-brand-border rounded-xl p-6 space-y-6">
             <h2 className="text-sm font-semibold text-white">Step 3 — 미리보기 및 저장</h2>
 
+            {/* 레거시 형식 안내 */}
+            {preview.format === 'legacy' && (
+              <div className="bg-brand-accent/10 border border-brand-accent/30 rounded-lg px-4 py-3 text-sm text-brand-accent">
+                기존 뷰어십 데이터 파일로 감지되었습니다. 글로벌·지역 대회의 Peak CCV 데이터를 자동으로 파싱합니다.
+              </div>
+            )}
+
             {/* 시트별 행 수 */}
             <div className="grid grid-cols-3 sm:grid-cols-7 gap-3">
               {(Object.entries(preview.summary) as [string, number][]).map(([sheet, count]) => (
@@ -245,7 +253,7 @@ export default function UploadPage() {
             <p className="text-sm text-gray-400">데이터가 브라우저에 저장되었습니다. 대시보드를 확인하세요.</p>
             <div className="flex gap-3">
               <button
-                onClick={() => router.push('/pubg-esports-dashboard/dashboard')}
+                onClick={() => router.push('/dashboard')}
                 className="px-4 py-2 rounded-lg bg-brand-accent/20 border border-brand-accent/40 text-brand-accent text-sm font-medium hover:bg-brand-accent/30"
               >
                 대시보드 확인 →
