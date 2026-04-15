@@ -1,12 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { cn, formatNumber } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 import type { Event, ReportHistory, ReportType, ViewershipKpi, SocialKpi } from '@/types'
 
 interface Props {
   events: Event[]
   history: ReportHistory[]
+  viewership?: ViewershipKpi[]
+  social?: SocialKpi[]
 }
 
 const REPORT_TYPES: { value: ReportType; label: string; desc: string }[] = [
@@ -21,7 +23,7 @@ const TYPE_LABEL: Record<ReportType, string> = {
   annual: '연간 총결산',
 }
 
-export function ReportsClient({ events, history }: Props) {
+export function ReportsClient({ events, history, viewership = [], social = [] }: Props) {
   const [reportType, setReportType] = useState<ReportType>('event_result')
   const [selectedEventId, setSelectedEventId] = useState<string>(
     events.find((e) => e.status === 'completed')?.id ?? ''
@@ -35,13 +37,11 @@ export function ReportsClient({ events, history }: Props) {
     if (!selectedEvent) return
     setGenerating(true)
     try {
-      const res = await fetch(`/api/kpis?event_id=${selectedEventId}`)
-      const data = await res.json()
-      const viewership: ViewershipKpi[] = data.viewership.data ?? []
-      const social: SocialKpi[] = data.social.data ?? []
+      const eventViewership = viewership.filter((v) => v.event_id === selectedEventId)
+      const eventSocial     = social.filter((s) => s.event_id === selectedEventId)
 
       const { generateEventExcel } = await import('@/lib/export/generate-excel')
-      const buf = generateEventExcel(selectedEvent, viewership, social)
+      const buf = generateEventExcel(selectedEvent, eventViewership, eventSocial)
       const blob = new Blob([buf.buffer as ArrayBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')

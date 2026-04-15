@@ -6,6 +6,7 @@ import { loadData, getViewershipTotal, getViewershipByPlatform, getSocialByPlatf
 import type { DashboardData } from '@/lib/store'
 import { KpiCard } from '@/components/kpi/KpiCard'
 import { TournamentFilter } from '@/components/dashboard/TournamentFilter'
+import { EventCalendar } from '@/components/EventCalendar'
 import dynamic from 'next/dynamic'
 
 const PlatformCcvChart = dynamic(
@@ -43,7 +44,7 @@ export default function DashboardPage() {
           <h2 className="text-xl font-bold">업로드된 데이터가 없습니다</h2>
           <p className="text-gray-400 text-sm">엑셀 파일을 업로드하면 대시보드가 채워집니다.</p>
           <Link
-            href="/pubg-esports-dashboard/upload"
+            href="/upload"
             className="inline-block mt-2 px-5 py-2.5 rounded-lg bg-brand-accent text-white text-sm font-medium hover:bg-brand-accent/80 transition-all"
           >
             데이터 업로드 →
@@ -172,6 +173,13 @@ export default function DashboardPage() {
             선택한 대회의 KPI 데이터가 없습니다.
           </div>
         )}
+
+        {/* 이벤트 캘린더 */}
+        <section className="bg-brand-surface border border-brand-border rounded-xl p-6">
+          <h2 className="text-sm font-semibold text-gray-300 mb-4">이벤트 캘린더</h2>
+          <EventCalendar events={data.events} />
+        </section>
+
       </div>
     </main>
   )
