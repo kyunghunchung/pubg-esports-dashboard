@@ -215,12 +215,31 @@ function parseTemplateFile(wb: XLSX.WorkBook): ParseResult {
     return results
   }
 
-  // 이벤트명이 빈칸이면 null(스킵), 이벤트명은 있지만 이벤트 시트에 없으면 에러
+  const nowYear = new Date().getFullYear()
+
+  // 이벤트명이 빈칸이면 null(스킵)
+  // 이벤트 시트에 없으면 이름에서 연도를 추출해 자동 생성
   function requireEvent(raw: Record<string, unknown>): string | null {
     const name = String(raw['이벤트명'] ?? '').trim()
     if (!name) return null  // 빈칸 → 조용히 스킵
-    const id = findEventId(name, events)
-    if (!id) throw new Error(`'${name}' 이벤트를 찾을 수 없습니다. 이벤트 시트에 먼저 추가하세요.`)
+
+    const existing = findEventId(name, events)
+    if (existing) return existing
+
+    // 자동 생성: 이름에서 연도 추출 (예: "PNC 2025" → 2025)
+    const yearMatch = name.match(/\b(20\d{2})\b/)
+    const year = yearMatch ? parseInt(yearMatch[1]) : nowYear
+    const id = makeEventId(name, year)
+    events.push({
+      id,
+      name,
+      type:       guessEventType(name),
+      year,
+      start_date: `${year}-01-01`,
+      end_date:   `${year}-12-31`,
+      status:     year < nowYear ? 'completed' : year === nowYear ? 'live' : 'upcoming',
+    })
+    summary.events++
     return id
   }
 
