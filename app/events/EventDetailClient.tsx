@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { loadData } from '@/lib/store'
 import type { DashboardData } from '@/lib/store'
@@ -32,7 +33,9 @@ const STATUS_LABEL: Record<string, string> = {
   completed: '종료', live: 'LIVE', upcoming: '예정',
 }
 
-export function EventDetailClient({ id }: { id: string }) {
+function EventDetailInner() {
+  const searchParams = useSearchParams()
+  const id = searchParams.get('id') ?? ''
   const [data, setData]       = useState<DashboardData | null>(null)
   const [tab, setTab]         = useState<TabKey>('viewership')
   const [mounted, setMounted] = useState(false)
@@ -135,5 +138,13 @@ export function EventDetailClient({ id }: { id: string }) {
         {tab === 'live_event'  && <LiveEventTab   liveEvent={liveEvent}     targets={targets} />}
       </div>
     </main>
+  )
+}
+
+export function EventDetailClient() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-brand-bg" />}>
+      <EventDetailInner />
+    </Suspense>
   )
 }

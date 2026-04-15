@@ -52,7 +52,7 @@ export function EventCalendar({ events }: Props) {
               .map((ev) => (
                 <Link
                   key={ev.id}
-                  href={`/events/${ev.id}`}
+                  href={`/events?id=${ev.id}`}
                   className={cn(
                     'flex items-center justify-between px-4 py-3 rounded-lg border hover:brightness-125 transition-all',
                     STATUS_STYLE[ev.status]
