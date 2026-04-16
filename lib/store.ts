@@ -56,3 +56,40 @@ export function getContentAggregated(data: DashboardData, eventIds: string[]) {
     content_count: rows.reduce((sum, r) => sum + (r.content_count ?? 0), 0),
   }
 }
+
+/** 소셜 데이터를 플랫폼별로 집계 (복수 이벤트 합산) */
+export function getSocialAggregatedByPlatform(data: DashboardData, eventIds: string[]) {
+  const rows = data.social.filter(s => eventIds.includes(s.event_id))
+  const map = new Map<string, { platform: string; impressions: number; engagements: number; video_views: number; content_count: number }>()
+  for (const row of rows) {
+    const existing = map.get(row.platform)
+    if (existing) {
+      existing.impressions   += row.impressions
+      existing.engagements   += row.engagements
+      existing.video_views   += row.video_views
+      existing.content_count += row.content_count ?? 0
+    } else {
+      map.set(row.platform, {
+        platform:      row.platform,
+        impressions:   row.impressions,
+        engagements:   row.engagements,
+        video_views:   row.video_views,
+        content_count: row.content_count ?? 0,
+      })
+    }
+  }
+  return Array.from(map.values())
+}
+
+/** 코스트리밍 KPI (복수 이벤트, 선택적 지역 필터) */
+export function getCostreamingAggregated(data: DashboardData, eventIds: string[], region?: string) {
+  let rows = data.broadcast.filter(b => eventIds.includes(b.event_id))
+  if (region) rows = rows.filter(b => b.region === region)
+  return {
+    streamer_count:  rows.reduce((sum, r) => sum + (r.co_streamer_count ?? 0), 0),
+    peak_view_sum:   rows.reduce((sum, r) => sum + (r.co_streamer_viewers ?? 0), 0),
+    total_cost_usd:  rows.reduce((sum, r) => sum + (r.cost_usd ?? 0), 0),
+    acv:             rows.length > 0 ? rows.reduce((sum, r) => sum + (r.acv ?? 0), 0) / rows.length : 0,
+    rows,
+  }
+}

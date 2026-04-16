@@ -5,11 +5,11 @@ import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 
 const NAV = [
-  { href: '/dashboard',  label: '대시보드' },
-  { href: '/community',  label: '커뮤니티 동향' },
-  { href: '/streamers',  label: '스트리머 대시보드' },
-  { href: '/upload',     label: '데이터 업로드' },
-  { href: '/admin',      label: 'Admin' },
+  { href: '/dashboard',    label: 'Dashboard' },
+  { href: '/contents',     label: 'Contents' },
+  { href: '/co-streaming', label: 'Co-streaming' },
+  { href: '/community',    label: 'Community' },
+  { href: '/reports',      label: 'Reports' },
 ]
 
 export function Nav() {

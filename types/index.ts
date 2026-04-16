@@ -50,7 +50,10 @@ export interface SocialKpi {
   engagements: number
   video_views: number
   follower_delta: number
-  content_count?: number   // 콘텐츠 발행 수 (게시물 수)
+  content_count?: number      // 콘텐츠 발행 수 (게시물 수)
+  region?: string             // 지역/언어 (KR / EN / JP / SEA 등)
+  content_type_1?: string     // 콘텐츠 종류 1 (숏폼 / 롱폼 / 포스트)
+  content_type_2?: string     // 콘텐츠 종류 2 (하이라이트 / 프로모션 / 하이핑)
   recorded_at: string
 }
 
@@ -59,9 +62,12 @@ export interface BroadcastKpi {
   event_id: string
   channel_count?: number
   co_streamer_count?: number
-  co_streamer_viewers?: number
+  co_streamer_viewers?: number  // Peak View 합산
   coverage_regions?: number
   clip_views?: number
+  region?: string               // 지역/언어 필터용
+  acv?: number                  // Average Concurrent Viewers
+  cost_usd?: number             // 코스트리밍 집행 비용 (ROI 계산용)
   recorded_at: string
 }
 
