@@ -9,6 +9,7 @@ const NAV = [
   { href: '/contents',     label: 'Contents' },
   { href: '/co-streaming', label: 'Co-streaming' },
   { href: '/community',    label: 'Community' },
+  { href: '/data-upload',  label: 'Data Upload' },
   { href: '/reports',      label: 'Reports' },
 ]
 
