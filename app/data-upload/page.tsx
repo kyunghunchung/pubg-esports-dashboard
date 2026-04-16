@@ -2,13 +2,12 @@
 
 import { useState, useRef, useCallback } from 'react'
 import { cn } from '@/lib/utils'
-import { loadData, saveData } from '@/lib/store'
-import { saveToSupabase } from '@/lib/db/queries'
+import { saveData } from '@/lib/store'
+import { saveTypedKpisToSupabase, loadFromSupabase } from '@/lib/db/queries'
 import {
   parseViewershipFile,
   parseContentsFile,
   parseCostreamingFile,
-  mergeTypedUpload,
   type MergeType,
   type TypedParseResult,
 } from '@/lib/import/parse-typed'
@@ -177,14 +176,12 @@ function UploadPanel({ tab }: { tab: UploadTab }) {
     if (!result || !config.mergeType || !file) return
     setUploading(true)
     try {
-      const existing = loadData()
-      if (!existing) {
-        alert('기존 데이터를 불러올 수 없습니다. 먼저 기본 데이터를 업로드하세요.')
-        return
-      }
-      const merged = mergeTypedUpload(existing, result, config.mergeType)
-      saveData(merged)
-      const { error } = await saveToSupabase(merged)
+      // 1. 파싱 결과를 Supabase에 직접 저장 (슬러그 → UUID 매핑 내부 처리)
+      const { error } = await saveTypedKpisToSupabase(
+        result.events,
+        config.mergeType,
+        { viewership: result.viewership, social: result.social, broadcast: result.broadcast },
+      )
 
       const entry: HistoryEntry = {
         id: crypto.randomUUID(),
@@ -199,8 +196,14 @@ function UploadPanel({ tab }: { tab: UploadTab }) {
       refreshHistory()
 
       if (error) {
-        alert(`Supabase 저장 오류: ${error}\n\n이 브라우저에만 저장되었습니다.`)
+        alert(`Supabase 저장 오류: ${error}`)
+        return
       }
+
+      // 2. Supabase에서 최신 데이터 재로드 → localStorage 갱신 (UUID 기반으로 정규화)
+      const fresh = await loadFromSupabase()
+      if (fresh) saveData(fresh)
+
       setDone(true)
     } finally {
       setUploading(false)

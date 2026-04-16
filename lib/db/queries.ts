@@ -37,14 +37,27 @@ export async function saveToSupabase(data: DashboardData): Promise<{ error: stri
       .select('id, name, year')
 
     if (evErr) return { error: `이벤트 저장 실패: ${evErr.message}` }
-    if (!upsertedEvents?.length) return { error: '이벤트 저장 후 ID를 받지 못했습니다.' }
+
+    // upsert 결과가 비어있는 경우(기존 행 변경 없음)를 대비해 name+year로 직접 SELECT
+    const eventNames = Array.from(new Set(data.events.map(e => e.name)))
+    const { data: fetchedEvents, error: fetchErr } = await supabase
+      .from('events')
+      .select('id, name, year')
+      .in('name', eventNames)
+
+    if (fetchErr) return { error: `이벤트 ID 조회 실패: ${fetchErr.message}` }
+    if (!fetchedEvents?.length) return { error: '이벤트 저장 후 ID를 받지 못했습니다.' }
 
     // local string id → supabase UUID 매핑
     const idMap = new Map<string, string>()
-    upsertedEvents.forEach(row => {
+    fetchedEvents.forEach(row => {
       const localId = data.events.find(e => e.name === row.name && e.year === row.year)?.id
       if (localId) idMap.set(localId, row.id)
     })
+
+    // 매핑 안 된 이벤트 있으면 조기 오류 반환
+    const unmapped = data.events.filter(e => !idMap.has(e.id)).map(e => e.name)
+    if (unmapped.length) return { error: `이벤트 UUID 매핑 실패: ${unmapped.join(', ')}` }
 
     const supabaseEventIds = Array.from(idMap.values())
 
@@ -59,7 +72,7 @@ export async function saveToSupabase(data: DashboardData): Promise<{ error: stri
     ])
 
     // 3. KPI 삽입
-    const toSupabaseId = (localId: string) => idMap.get(localId) ?? localId
+    const toSupabaseId = (localId: string) => idMap.get(localId) ?? (() => { throw new Error(`이벤트 UUID 없음: ${localId}`) })()
 
     if (data.viewership.length) {
       const { error } = await supabase.from('viewership_kpis').insert(
@@ -152,6 +165,127 @@ export async function saveToSupabase(data: DashboardData): Promise<{ error: stri
         }))
       )
       if (error) return { error: `KPI 목표값 저장 실패: ${error.message}` }
+    }
+
+    return { error: null }
+  } catch (e) {
+    return { error: String(e) }
+  }
+}
+
+// ─── 탭별 KPI 직접 저장 (파싱 결과 → Supabase, ID 매핑 내부 처리) ─────────
+
+export async function saveTypedKpisToSupabase(
+  events: Event[],
+  kpiType: 'viewership' | 'contents' | 'costreaming',
+  kpis: {
+    viewership?: ViewershipKpi[]
+    social?:     SocialKpi[]
+    broadcast?:  BroadcastKpi[]
+  },
+): Promise<{ error: string | null }> {
+  try {
+    if (!events.length) return { error: '이벤트 데이터가 없습니다.' }
+
+    // 1. 이벤트 upsert
+    const { error: evErr } = await supabase
+      .from('events')
+      .upsert(
+        events.map(e => ({
+          name:       e.name,
+          type:       e.type,
+          year:       e.year,
+          start_date: e.start_date || `${e.year}-01-01`,
+          end_date:   e.end_date   || `${e.year}-12-31`,
+          venue:      e.venue  ?? null,
+          region:     e.region ?? null,
+          status:     e.status,
+        })),
+        { onConflict: 'name,year', ignoreDuplicates: false },
+      )
+    if (evErr) return { error: `이벤트 저장 실패: ${evErr.message}` }
+
+    // 2. name+year 로 UUID 조회 (upsert 반환값 불안정 대비)
+    const { data: fetched, error: fetchErr } = await supabase
+      .from('events')
+      .select('id, name, year')
+      .in('name', events.map(e => e.name))
+    if (fetchErr) return { error: `이벤트 ID 조회 실패: ${fetchErr.message}` }
+    if (!fetched?.length) return { error: '이벤트 저장 후 ID를 받지 못했습니다.' }
+
+    // 슬러그 → UUID 매핑
+    const idMap = new Map<string, string>()
+    for (const ev of events) {
+      const row = fetched.find(r => r.name === ev.name && r.year === ev.year)
+      if (row) idMap.set(ev.id, row.id)
+    }
+    const missing = events.filter(e => !idMap.has(e.id)).map(e => e.name)
+    if (missing.length) return { error: `이벤트 UUID 매핑 실패: ${missing.join(', ')}` }
+
+    const uuids = Array.from(idMap.values())
+    const toUUID = (localId: string) => idMap.get(localId)!
+
+    // 3. 해당 탭의 기존 KPI 삭제
+    if (kpiType === 'viewership') {
+      await supabase.from('viewership_kpis').delete().in('event_id', uuids)
+      if (kpis.viewership?.length) {
+        const { error } = await supabase.from('viewership_kpis').insert(
+          kpis.viewership.map(v => ({
+            event_id:        toUUID(v.event_id),
+            platform:        v.platform,
+            peak_ccv:        v.peak_ccv        ?? null,
+            acv:             v.acv             ?? null,
+            hours_watched:   v.hours_watched   ?? null,
+            unique_viewers:  v.unique_viewers  ?? null,
+            hours_broadcast: v.hours_broadcast ?? null,
+            recorded_at:     v.recorded_at,
+          }))
+        )
+        if (error) return { error: `뷰어십 저장 실패: ${error.message}` }
+      }
+    }
+
+    if (kpiType === 'contents') {
+      await supabase.from('social_kpis').delete().in('event_id', uuids)
+      if (kpis.social?.length) {
+        const { error } = await supabase.from('social_kpis').insert(
+          kpis.social.map(s => ({
+            event_id:       toUUID(s.event_id),
+            platform:       s.platform,
+            impressions:    s.impressions,
+            engagements:    s.engagements,
+            video_views:    s.video_views,
+            follower_delta: s.follower_delta,
+            content_count:  s.content_count  ?? null,
+            region:         s.region         ?? null,
+            content_type_1: s.content_type_1 ?? null,
+            content_type_2: s.content_type_2 ?? null,
+            recorded_at:    s.recorded_at,
+          }))
+        )
+        if (error) return { error: `소셜 저장 실패: ${error.message}` }
+      }
+    }
+
+    if (kpiType === 'costreaming') {
+      await supabase.from('broadcast_kpis').delete().in('event_id', uuids)
+      if (kpis.broadcast?.length) {
+        const { error } = await supabase.from('broadcast_kpis').insert(
+          kpis.broadcast.map(b => ({
+            event_id:            toUUID(b.event_id),
+            channel_count:       b.channel_count       ?? null,
+            co_streamer_count:   b.co_streamer_count   ?? null,
+            co_streamer_viewers: b.co_streamer_viewers ?? null,
+            coverage_regions:    b.coverage_regions    ?? null,
+            clip_views:          b.clip_views          ?? null,
+            region:              b.region              ?? null,
+            acv:                 b.acv                 ?? null,
+            cost_usd:            b.cost_usd            ?? null,
+            recorded_at:         b.recorded_at,
+          }))
+        )
+        if (error) return { error: `방송 저장 실패: ${error.message}` }
+      }
     }
 
     return { error: null }

@@ -242,28 +242,35 @@ export function mergeTypedUpload(
   result: TypedParseResult,
   type: MergeType,
 ): DashboardData {
-  // 이벤트 병합 — ID가 아닌 name+year 기준으로 중복 체크
-  // (Supabase UUID ID vs 로컬 문자열 ID 혼용 시 동일 이벤트가 두 번 들어가는 문제 방지)
+  // 이벤트 병합 — name+year 기준 중복 체크
+  // 기존 이벤트(UUID)와 name+year가 같으면 기존 ID를 유지하고,
+  // 새 이벤트의 슬러그 ID → 기존 UUID ID 매핑을 기록해 KPI에 적용한다.
   const mergedEvents = [...existing.events]
+  const idRemap = new Map<string, string>() // 새 슬러그 ID → 실제 ID
+
   for (const ev of result.events) {
-    const isDup = mergedEvents.some(e =>
-      e.id === ev.id || (e.name === ev.name && e.year === ev.year)
-    )
-    if (!isDup) mergedEvents.push(ev)
+    const dup = mergedEvents.find(e => e.name === ev.name && e.year === ev.year)
+    if (dup) {
+      idRemap.set(ev.id, dup.id) // 새 슬러그 → 기존 UUID
+    } else {
+      mergedEvents.push(ev)
+      idRemap.set(ev.id, ev.id) // 신규 이벤트는 그대로
+    }
   }
 
-  // 해당 이벤트 ID 집합
-  const newEventIds = new Set(result.events.map(e => e.id))
+  const remapId = (id: string) => idRemap.get(id) ?? id
+
+  // 새 데이터로 교체될 이벤트의 실제 ID 집합 (기존 KPI 제거용)
+  const replacedEventIds = new Set(idRemap.values())
 
   switch (type) {
     case 'viewership':
       return {
         ...existing,
         events: mergedEvents,
-        // 새 데이터가 있는 이벤트의 기존 뷰어십 제거 후 새 데이터 추가
         viewership: [
-          ...existing.viewership.filter(v => !newEventIds.has(v.event_id)),
-          ...(result.viewership ?? []),
+          ...existing.viewership.filter(v => !replacedEventIds.has(v.event_id)),
+          ...(result.viewership ?? []).map(v => ({ ...v, event_id: remapId(v.event_id) })),
         ],
         uploadedAt: new Date().toISOString(),
       }
@@ -272,8 +279,8 @@ export function mergeTypedUpload(
         ...existing,
         events: mergedEvents,
         social: [
-          ...existing.social.filter(s => !newEventIds.has(s.event_id)),
-          ...(result.social ?? []),
+          ...existing.social.filter(s => !replacedEventIds.has(s.event_id)),
+          ...(result.social ?? []).map(s => ({ ...s, event_id: remapId(s.event_id) })),
         ],
         uploadedAt: new Date().toISOString(),
       }
@@ -282,8 +289,8 @@ export function mergeTypedUpload(
         ...existing,
         events: mergedEvents,
         broadcast: [
-          ...existing.broadcast.filter(b => !newEventIds.has(b.event_id)),
-          ...(result.broadcast ?? []),
+          ...existing.broadcast.filter(b => !replacedEventIds.has(b.event_id)),
+          ...(result.broadcast ?? []).map(b => ({ ...b, event_id: remapId(b.event_id) })),
         ],
         uploadedAt: new Date().toISOString(),
       }
