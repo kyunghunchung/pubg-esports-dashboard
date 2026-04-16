@@ -23,9 +23,11 @@ export default function DashboardPage() {
   const [selectedId, setSelectedId] = useState<string>('')
 
   useEffect(() => {
-    if (data?.events?.length && !selectedId) {
-      setSelectedId(data.events[0].id)
-    }
+    if (!data?.events?.length) return
+    // selectedId가 없거나 현재 data에 존재하지 않으면 첫 번째 이벤트로 초기화
+    // (Supabase 로드 시 UUID로 ID가 바뀌는 경우 포함)
+    const exists = data.events.some(e => e.id === selectedId)
+    if (!exists) setSelectedId(data.events[0].id)
   }, [data])
 
   if (loading && !data) return <div className="min-h-screen bg-brand-bg" />
@@ -85,8 +87,8 @@ export default function DashboardPage() {
     <main className="min-h-screen bg-brand-bg text-white">
       <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
 
-        {/* 헤더 + 대회 필터 */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        {/* 헤더 */}
+        <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold">PUBG Esports 대시보드</h1>
             <p className="text-sm text-gray-400 mt-1">
@@ -97,12 +99,14 @@ export default function DashboardPage() {
               </span>
             </p>
           </div>
-          <TournamentFilter
-            events={data.events}
-            selectedId={effectiveId}
-            onChange={setSelectedId}
-          />
         </div>
+
+        {/* 대회 필터 (연도 탭 + 이벤트 버튼) */}
+        <TournamentFilter
+          events={data.events}
+          selectedId={effectiveId}
+          onChange={setSelectedId}
+        />
 
         {/* KPI 카드 5종 */}
         <section>
