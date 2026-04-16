@@ -50,6 +50,7 @@ export interface SocialKpi {
   engagements: number
   video_views: number
   follower_delta: number
+  content_count?: number   // 콘텐츠 발행 수 (게시물 수)
   recorded_at: string
 }
 
