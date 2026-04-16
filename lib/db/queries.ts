@@ -11,16 +11,25 @@ export async function saveToSupabase(data: DashboardData): Promise<{ error: stri
   try {
     // 1. 이벤트 upsert (name + year 기준)
     //    start_date / end_date 가 빈 문자열이면 해당 연도 기본값 사용
-    const eventRows = data.events.map(e => ({
-      name:       e.name,
-      type:       e.type,
-      year:       e.year,
-      start_date: e.start_date || `${e.year}-01-01`,
-      end_date:   e.end_date   || `${e.year}-12-31`,
-      venue:      e.venue  ?? null,
-      region:     e.region ?? null,
-      status:     e.status,
-    }))
+    // name+year 기준 dedup — 같은 이벤트가 로컬 ID / Supabase UUID 두 개로 들어올 경우 방어
+    const seenEventKey = new Set<string>()
+    const eventRows = data.events
+      .filter(e => {
+        const key = `${e.name}::${e.year}`
+        if (seenEventKey.has(key)) return false
+        seenEventKey.add(key)
+        return true
+      })
+      .map(e => ({
+        name:       e.name,
+        type:       e.type,
+        year:       e.year,
+        start_date: e.start_date || `${e.year}-01-01`,
+        end_date:   e.end_date   || `${e.year}-12-31`,
+        venue:      e.venue  ?? null,
+        region:     e.region ?? null,
+        status:     e.status,
+      }))
 
     const { data: upsertedEvents, error: evErr } = await supabase
       .from('events')

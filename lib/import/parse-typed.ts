@@ -242,10 +242,14 @@ export function mergeTypedUpload(
   result: TypedParseResult,
   type: MergeType,
 ): DashboardData {
-  // 이벤트 병합 (기존 유지 + 새 이벤트 추가)
+  // 이벤트 병합 — ID가 아닌 name+year 기준으로 중복 체크
+  // (Supabase UUID ID vs 로컬 문자열 ID 혼용 시 동일 이벤트가 두 번 들어가는 문제 방지)
   const mergedEvents = [...existing.events]
   for (const ev of result.events) {
-    if (!mergedEvents.find(e => e.id === ev.id)) mergedEvents.push(ev)
+    const isDup = mergedEvents.some(e =>
+      e.id === ev.id || (e.name === ev.name && e.year === ev.year)
+    )
+    if (!isDup) mergedEvents.push(ev)
   }
 
   // 해당 이벤트 ID 집합
