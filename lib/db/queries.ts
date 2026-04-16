@@ -80,13 +80,17 @@ export async function saveToSupabase(data: DashboardData): Promise<{ error: stri
     if (data.social.length) {
       const { error } = await supabase.from('social_kpis').insert(
         data.social.map(s => ({
-          event_id:       toSupabaseId(s.event_id),
-          platform:       s.platform,
-          impressions:    s.impressions,
-          engagements:    s.engagements,
-          video_views:    s.video_views,
-          follower_delta: s.follower_delta,
-          recorded_at:    s.recorded_at,
+          event_id:        toSupabaseId(s.event_id),
+          platform:        s.platform,
+          impressions:     s.impressions,
+          engagements:     s.engagements,
+          video_views:     s.video_views,
+          follower_delta:  s.follower_delta,
+          content_count:   s.content_count   ?? null,
+          region:          s.region          ?? null,
+          content_type_1:  s.content_type_1  ?? null,
+          content_type_2:  s.content_type_2  ?? null,
+          recorded_at:     s.recorded_at,
         }))
       )
       if (error) return { error: `소셜 저장 실패: ${error.message}` }
@@ -101,6 +105,9 @@ export async function saveToSupabase(data: DashboardData): Promise<{ error: stri
           co_streamer_viewers: b.co_streamer_viewers ?? null,
           coverage_regions:    b.coverage_regions    ?? null,
           clip_views:          b.clip_views          ?? null,
+          region:              b.region              ?? null,
+          acv:                 b.acv                 ?? null,
+          cost_usd:            b.cost_usd            ?? null,
           recorded_at:         b.recorded_at,
         }))
       )

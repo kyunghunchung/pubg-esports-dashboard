@@ -1,6 +1,6 @@
 export type EventStatus = 'upcoming' | 'live' | 'completed'
 // 글로벌: PGS | PNC | PGC | EWC | PMI(Players Masters Invitational)  /  지역: Regional
-export type EventType = 'PGS' | 'PNC' | 'PGC' | 'EWC' | 'PMI' | 'Regional'
+export type EventType = 'PGS' | 'PNC' | 'PGC' | 'EWC' | 'PMI' | 'ENC' | 'Regional'
 export type KpiCategory = 'viewership' | 'social' | 'broadcast' | 'competitive' | 'live_event'
 // 소셜 플랫폼 (lib/config/constants.ts SOCIAL_PLATFORMS와 동기화)
 export type SocialPlatform = 'x' | 'instagram' | 'facebook' | 'tiktok' | 'youtube'

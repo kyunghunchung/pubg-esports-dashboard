@@ -37,6 +37,7 @@ export const GLOBAL_EVENT_TYPES = {
   PGC: 'PUBG Global Championship',
   EWC: 'Esports World Cup',
   PMI: 'PUBG Players Masters Invitational',
+  ENC: 'Esports Nations Championship',
 } as const
 
 export type GlobalEventTypeId = keyof typeof GLOBAL_EVENT_TYPES
@@ -61,6 +62,7 @@ export function guessEventType(name: string): EventTypeId {
   if (u.includes('PNC') || u.includes('NATIONS CUP'))                   return 'PNC'
   if (u.includes('PGS') || u.includes('GLOBAL SERIES'))                 return 'PGS'
   if (u.includes('EWC') || u.includes('ESPORTS WORLD CUP'))             return 'EWC'
+  if (u.includes('ENC') || u.includes('ESPORTS NATIONS'))               return 'ENC'
   if (u.includes('PMI') || u.includes('PLAYERS MASTERS') ||
       u.includes('INVITATIONAL'))                                        return 'PMI'
   return 'Regional'
