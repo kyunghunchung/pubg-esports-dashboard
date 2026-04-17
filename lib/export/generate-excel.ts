@@ -4,15 +4,19 @@ import type { Event, ViewershipKpi, SocialKpi } from '@/types'
 export function generateEventExcel(event: Event, viewership: ViewershipKpi[], social: SocialKpi[]): Uint8Array {
   const wb = XLSX.utils.book_new()
 
-  // 뷰어십 시트
-  const viewershipRows = viewership.map((v) => ({
-    플랫폼: v.platform,
-    'Peak CCV': v.peak_ccv ?? 0,
-    ACV: v.acv ?? 0,
-    'Hours Watched': v.hours_watched ?? 0,
-    '순 시청자': v.unique_viewers ?? 0,
-    '방송 시간': v.hours_broadcast ?? 0,
-  }))
+  // 뷰어십 시트 (v5 스펙: PCCV / ACCV / UV / Stability Ratio)
+  const viewershipRows = viewership.map((v) => {
+    const pccv = v.peak_ccv ?? 0
+    const accv = v.acv ?? 0
+    const stability = pccv > 0 ? Math.round((accv / pccv) * 100) : null
+    return {
+      플랫폼: v.platform,
+      PCCV: pccv,
+      ACCV: accv,
+      'Unique Viewers': v.unique_viewers ?? 0,
+      'Stability Ratio (%)': stability ?? '',
+    }
+  })
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(viewershipRows), '뷰어십')
 
   // 소셜 시트

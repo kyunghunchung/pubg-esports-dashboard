@@ -46,7 +46,7 @@ function EventDetailInner() {
         <div className="text-center space-y-4">
           <p className="text-5xl">📂</p>
           <h2 className="text-xl font-bold">데이터가 없습니다</h2>
-          <Link href="/upload" className="inline-block mt-2 px-5 py-2.5 rounded-lg bg-brand-accent text-white text-sm font-medium hover:bg-brand-accent/80">
+          <Link href="/data-upload" className="inline-block mt-2 px-5 py-2.5 rounded-lg bg-brand-accent text-white text-sm font-medium hover:bg-brand-accent/80">
             데이터 업로드 →
           </Link>
         </div>

@@ -142,7 +142,7 @@ export default function CostreamingPage() {
           <p className="text-5xl">📂</p>
           <h2 className="text-xl font-bold">업로드된 데이터가 없습니다</h2>
           <p className="text-gray-400 text-sm">엑셀 파일을 업로드하면 코스트리밍 성과를 확인할 수 있습니다.</p>
-          <Link href="/upload" className="inline-block mt-2 px-5 py-2.5 rounded-lg bg-brand-accent text-white text-sm font-medium hover:bg-brand-accent/80">
+          <Link href="/data-upload" className="inline-block mt-2 px-5 py-2.5 rounded-lg bg-brand-accent text-white text-sm font-medium hover:bg-brand-accent/80">
             데이터 업로드 →
           </Link>
         </div>
@@ -169,13 +169,19 @@ export default function CostreamingPage() {
               onChange={v => { setFilterYear(v); setFilterEvent('') }}
               options={yearOptions}
             />
-            <FilterSelect
-              label="대회"
-              value={filterEvent}
-              onChange={setFilterEvent}
-              options={eventOptions.map(e => e.id)}
-              placeholder="전체"
-            />
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-gray-500 font-medium uppercase tracking-wider">대회</label>
+              <select
+                value={filterEvent}
+                onChange={e => setFilterEvent(e.target.value)}
+                className="bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-accent transition-colors"
+              >
+                <option value="">전체</option>
+                {eventOptions.map(e => (
+                  <option key={e.id} value={e.id}>{e.name}</option>
+                ))}
+              </select>
+            </div>
             <FilterSelect
               label="지역 (언어)"
               value={filterRegion}
@@ -210,7 +216,7 @@ export default function CostreamingPage() {
             label="Peak View 합산"
             value={coKpi?.peak_view_sum}
             unit="명"
-            caption="※ 동시 달성 수치가 아닌, 스트리머별 최고 동시 시청자 수의 합산값입니다."
+            caption="※ 스트리머별 피크 시간대가 상이하므로 동시 달성 수치가 아닙니다."
           />
           <StatCard
             label="ACCV"
