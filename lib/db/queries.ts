@@ -4,6 +4,8 @@ import type {
   Event, ViewershipKpi, SocialKpi, BroadcastKpi,
   CompetitiveKpi, LiveEventKpi, KpiTarget,
 } from '@/types'
+import type { EventMasterEntry } from '@/lib/config/event-master'
+import { EVENT_MASTER } from '@/lib/config/event-master'
 
 // ─── 저장 ────────────────────────────────────────────────────────────────────
 
@@ -338,6 +340,43 @@ export async function clearAllSupabaseData(): Promise<{ error: string | null }> 
   } catch (e) {
     return { error: String(e) }
   }
+}
+
+// ─── EVENT_MASTER 관리 ─────────────────────────────────────────────────────
+
+/** Supabase event_master 테이블 전체 로드. 테이블 없거나 비어있으면 정적 배열 반환 */
+export async function loadEventMaster(): Promise<EventMasterEntry[]> {
+  try {
+    const { data, error } = await supabase
+      .from('event_master')
+      .select('event_id, display_name, year, is_global, sort_order')
+      .order('year', { ascending: false })
+      .order('sort_order', { ascending: true })
+    if (error || !data?.length) return EVENT_MASTER
+    return data as EventMasterEntry[]
+  } catch {
+    return EVENT_MASTER
+  }
+}
+
+/** 이벤트 마스터 항목 추가/수정 (event_id 기준 upsert) */
+export async function upsertEventMasterEntry(entry: EventMasterEntry): Promise<{ error: string | null }> {
+  const { error } = await supabase
+    .from('event_master')
+    .upsert(
+      { event_id: entry.event_id, display_name: entry.display_name, year: entry.year, is_global: entry.is_global, sort_order: entry.sort_order },
+      { onConflict: 'event_id' }
+    )
+  return { error: error?.message ?? null }
+}
+
+/** 이벤트 마스터 항목 삭제 */
+export async function deleteEventMasterEntry(event_id: string): Promise<{ error: string | null }> {
+  const { error } = await supabase
+    .from('event_master')
+    .delete()
+    .eq('event_id', event_id)
+  return { error: error?.message ?? null }
 }
 
 // ─── 불러오기 ──────────────────────────────────────────────────────────────

@@ -36,24 +36,37 @@ export const EVENT_MASTER: EventMasterEntry[] = [
   { event_id: 'PGC_2023',  display_name: 'PGC 2023',  year: 2023, is_global: true,  sort_order: 4 },
 ]
 
+// ── 런타임 오버라이드 (Supabase에서 로드 후 setRuntimeEventMaster() 호출) ──
+let _runtime: EventMasterEntry[] | null = null
+
+/** Supabase에서 로드한 이벤트 목록으로 런타임 마스터를 교체합니다 */
+export function setRuntimeEventMaster(entries: EventMasterEntry[]) {
+  _runtime = entries
+}
+
+/** 현재 유효한 이벤트 목록 반환 (Supabase 로드 후엔 Supabase 값, 이전엔 정적 배열) */
+export function getEffectiveMaster(): EventMasterEntry[] {
+  return _runtime ?? EVENT_MASTER
+}
+
 /** event_id → EventMasterEntry. 없으면 undefined */
 export function getEventMasterById(id: string): EventMasterEntry | undefined {
-  return EVENT_MASTER.find(e => e.event_id === id)
+  return getEffectiveMaster().find(e => e.event_id === id)
 }
 
 /** event_id → 화면 표시명. 없으면 event_id 그대로 반환 */
 export function getDisplayName(event_id: string): string {
-  return EVENT_MASTER.find(e => e.event_id === event_id)?.display_name ?? event_id
+  return getEffectiveMaster().find(e => e.event_id === event_id)?.display_name ?? event_id
 }
 
 /** EVENT_MASTER 에 등록된 연도 목록 (내림차순) */
 export function getAllYears(): number[] {
-  return Array.from(new Set(EVENT_MASTER.map(e => e.year))).sort((a, b) => b - a)
+  return Array.from(new Set(getEffectiveMaster().map(e => e.year))).sort((a, b) => b - a)
 }
 
 /** 해당 연도의 전체 이벤트 (sort_order 오름차순) */
 export function getEventsByYear(year: number): EventMasterEntry[] {
-  return EVENT_MASTER.filter(e => e.year === year).sort((a, b) => a.sort_order - b.sort_order)
+  return getEffectiveMaster().filter(e => e.year === year).sort((a, b) => a.sort_order - b.sort_order)
 }
 
 /** 해당 연도의 글로벌 이벤트만 (sort_order 오름차순) */

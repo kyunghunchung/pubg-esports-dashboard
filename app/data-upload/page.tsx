@@ -17,7 +17,8 @@ import {
   generateContentsTemplate,
   generateCostreamingTemplate,
 } from '@/lib/export/template'
-import { EVENT_MASTER } from '@/lib/config/event-master'
+import type { EventMasterEntry } from '@/lib/config/event-master'
+import { useEventMaster } from '@/lib/hooks/useEventMaster'
 
 // ── 업로드 히스토리 (localStorage) ──────────────────────────────
 const HISTORY_KEY = 'pubg_upload_history_v1'
@@ -105,7 +106,11 @@ function PasswordGate({ onUnlock }: { onUnlock: () => void }) {
 }
 
 // ── 업로드 패널 (공통) ───────────────────────────────────────────
-function UploadPanel({ tab }: { tab: UploadTab }) {
+function UploadPanel({ tab, onAddEntry, onReanalyzeReady }: {
+  tab: UploadTab
+  onAddEntry: (entry: EventMasterEntry) => Promise<{ error: string | null }>
+  onReanalyzeReady: () => void
+}) {
   const config       = TAB_CONFIG[tab]
   const inputRef     = useRef<HTMLInputElement>(null)
   const [dragging, setDragging]   = useState(false)
@@ -212,7 +217,7 @@ function UploadPanel({ tab }: { tab: UploadTab }) {
     }
   }
 
-  // Community 탭: 비활성 상태
+  // Community 탭: 비활성 상태 (onAddEntry / onReanalyzeReady 미사용)
   if (tab === 'community') {
     return (
       <div className="space-y-6">
@@ -244,34 +249,6 @@ function UploadPanel({ tab }: { tab: UploadTab }) {
 
   return (
     <div className="space-y-6">
-
-      {/* 0. 허용 이벤트 ID 안내 */}
-      <div className="bg-brand-surface border border-brand-border rounded-xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-brand-border">
-          <h3 className="text-sm font-semibold text-white">허용 이벤트 ID</h3>
-          <p className="text-xs text-gray-400 mt-0.5">
-            업로드 파일의 <code className="bg-brand-bg px-1 py-0.5 rounded text-brand-accent">event_id</code> 컬럼에는 아래 값을 정확히 입력하세요
-          </p>
-        </div>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-brand-border">
-              <th className="px-5 py-2 text-left text-gray-400 font-medium text-xs">event_id</th>
-              <th className="px-5 py-2 text-left text-gray-400 font-medium text-xs">표시명</th>
-              <th className="px-5 py-2 text-left text-gray-400 font-medium text-xs">연도</th>
-            </tr>
-          </thead>
-          <tbody>
-            {EVENT_MASTER.map(e => (
-              <tr key={e.event_id} className="border-b border-brand-border last:border-0">
-                <td className="px-5 py-2 font-mono text-brand-accent text-xs">{e.event_id}</td>
-                <td className="px-5 py-2 text-gray-300 text-xs">{e.display_name}</td>
-                <td className="px-5 py-2 text-gray-500 text-xs">{e.year}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
 
       {/* 1. 템플릿 다운로드 */}
       <div className="bg-brand-surface border border-brand-border rounded-xl p-6 space-y-3">
@@ -375,14 +352,22 @@ function UploadPanel({ tab }: { tab: UploadTab }) {
 
                 {/* 오류 목록 */}
                 {result.errors.length > 0 && (
-                  <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-4 space-y-1">
-                    <p className="text-sm font-semibold text-red-400">오류 {result.errors.length}건</p>
-                    {result.errors.slice(0, 8).map((e, i) => (
-                      <p key={i} className="text-xs text-red-300">{e.row}행: {e.message}</p>
-                    ))}
-                    {result.errors.length > 8 && (
-                      <p className="text-xs text-gray-500">...외 {result.errors.length - 8}건</p>
-                    )}
+                  <div className="space-y-3">
+                    <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-4 space-y-1">
+                      <p className="text-sm font-semibold text-red-400">오류 {result.errors.length}건</p>
+                      {result.errors.slice(0, 8).map((e, i) => (
+                        <p key={i} className="text-xs text-red-300">{e.row}행: {e.message}</p>
+                      ))}
+                      {result.errors.length > 8 && (
+                        <p className="text-xs text-gray-500">...외 {result.errors.length - 8}건</p>
+                      )}
+                    </div>
+                    {/* 미등록 event_id 빠른 추가 */}
+                    <UnknownEventQuickAdd
+                      errors={result.errors}
+                      onAddEntry={onAddEntry}
+                      onAllAdded={() => { onReanalyzeReady(); setResult(null) }}
+                    />
                   </div>
                 )}
 
@@ -423,6 +408,236 @@ function UploadPanel({ tab }: { tab: UploadTab }) {
 
       {/* 3. 업로드 히스토리 */}
       <UploadHistory history={history} />
+    </div>
+  )
+}
+
+// ── 미등록 event_id 빠른 추가 ────────────────────────────────────
+function UnknownEventQuickAdd({
+  errors,
+  onAddEntry,
+  onAllAdded,
+}: {
+  errors: { row: number; message: string }[]
+  onAddEntry: (entry: EventMasterEntry) => Promise<{ error: string | null }>
+  onAllAdded: () => void
+}) {
+  // 오류 메시지에서 미등록 event_id 추출
+  const unknownIds = Array.from(new Set(
+    errors
+      .map(e => /등록되지 않은 이벤트입니다: "([^"]+)"/.exec(e.message)?.[1])
+      .filter((id): id is string => Boolean(id))
+  ))
+
+  const [adding, setAdding] = useState(false)
+  const [added, setAdded]   = useState<Set<string>>(new Set())
+
+  if (!unknownIds.length) return null
+
+  function guessEntry(id: string): EventMasterEntry {
+    const yearMatch = /_(\d{4})$/.exec(id)
+    const year = yearMatch ? Number(yearMatch[1]) : new Date().getFullYear()
+    const display = id.replace(/_(\d{4})$/, ' $1').replace(/_/g, ' ')
+    return { event_id: id, display_name: display, year, is_global: true, sort_order: 99 }
+  }
+
+  async function handleAddAll() {
+    setAdding(true)
+    for (const id of unknownIds) {
+      if (added.has(id)) continue
+      const { error } = await onAddEntry(guessEntry(id))
+      if (!error) setAdded(prev => new Set(Array.from(prev).concat(id)))
+    }
+    setAdding(false)
+    onAllAdded()
+  }
+
+  const remaining = unknownIds.filter(id => !added.has(id))
+
+  return (
+    <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-lg p-4 space-y-3">
+      <div>
+        <p className="text-sm font-semibold text-yellow-400">미등록 이벤트 {unknownIds.length}개 감지됨</p>
+        <p className="text-xs text-gray-400 mt-0.5">아래 event_id를 Event Master에 추가하면 바로 업로드할 수 있습니다.</p>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {unknownIds.map(id => (
+          <span key={id} className={cn(
+            'text-xs px-2.5 py-1 rounded-md border font-mono',
+            added.has(id)
+              ? 'bg-green-500/10 border-green-500/30 text-green-400'
+              : 'bg-brand-bg border-brand-border text-yellow-300'
+          )}>
+            {id}{added.has(id) ? ' ✓' : ''}
+          </span>
+        ))}
+      </div>
+      {remaining.length > 0 && (
+        <button
+          onClick={handleAddAll}
+          disabled={adding}
+          className="px-4 py-2 rounded-lg bg-yellow-500/20 border border-yellow-500/40 text-yellow-300 text-sm font-medium hover:bg-yellow-500/30 transition-all disabled:opacity-50"
+        >
+          {adding ? '추가 중...' : `전체 추가 후 재분석 →`}
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ── 이벤트 마스터 관리 패널 ──────────────────────────────────────
+function EventMasterPanel({
+  entries,
+  loading,
+  onAdd,
+  onDelete,
+}: {
+  entries: EventMasterEntry[]
+  loading: boolean
+  onAdd: (entry: EventMasterEntry) => Promise<{ error: string | null }>
+  onDelete: (event_id: string) => Promise<{ error: string | null }>
+}) {
+  const [showForm, setShowForm] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [form, setForm] = useState<EventMasterEntry>({
+    event_id: '', display_name: '', year: new Date().getFullYear(), is_global: true, sort_order: 99,
+  })
+
+  // 연도별 그룹
+  const years = Array.from(new Set(entries.map(e => e.year))).sort((a, b) => b - a)
+
+  async function handleAdd() {
+    if (!form.event_id.trim() || !form.display_name.trim()) return
+    setSubmitting(true)
+    const { error } = await onAdd(form)
+    if (error) alert(`추가 오류: ${error}`)
+    else {
+      setShowForm(false)
+      setForm({ event_id: '', display_name: '', year: new Date().getFullYear(), is_global: true, sort_order: 99 })
+    }
+    setSubmitting(false)
+  }
+
+  return (
+    <div className="bg-brand-surface border border-brand-border rounded-xl overflow-hidden">
+      <div className="px-5 py-4 border-b border-brand-border flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-semibold text-white">이벤트 마스터 관리</h3>
+          <p className="text-xs text-gray-400 mt-0.5">
+            업로드 파일의 <code className="bg-brand-bg px-1 py-0.5 rounded text-brand-accent">event_id</code> 컬럼에 사용 가능한 값 목록
+          </p>
+        </div>
+        <button
+          onClick={() => setShowForm(v => !v)}
+          className="px-3 py-1.5 rounded-lg bg-brand-accent/20 border border-brand-accent/40 text-brand-accent text-xs font-medium hover:bg-brand-accent/30 transition-all"
+        >
+          {showForm ? '취소' : '+ 이벤트 추가'}
+        </button>
+      </div>
+
+      {/* 추가 폼 */}
+      {showForm && (
+        <div className="px-5 py-4 border-b border-brand-border bg-brand-bg/40 space-y-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">event_id *</label>
+              <input
+                value={form.event_id}
+                onChange={e => setForm(p => ({ ...p, event_id: e.target.value.replace(/\s+/g, '').toUpperCase() }))}
+                placeholder="PGC_2022"
+                className="w-full px-3 py-2 rounded-lg bg-brand-bg border border-brand-border text-white text-sm focus:outline-none focus:border-brand-accent"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">표시명 *</label>
+              <input
+                value={form.display_name}
+                onChange={e => setForm(p => ({ ...p, display_name: e.target.value }))}
+                placeholder="PGC 2022"
+                className="w-full px-3 py-2 rounded-lg bg-brand-bg border border-brand-border text-white text-sm focus:outline-none focus:border-brand-accent"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">연도 *</label>
+              <input
+                type="number"
+                value={form.year}
+                onChange={e => setForm(p => ({ ...p, year: Number(e.target.value) }))}
+                className="w-full px-3 py-2 rounded-lg bg-brand-bg border border-brand-border text-white text-sm focus:outline-none focus:border-brand-accent"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">구분</label>
+              <select
+                value={String(form.is_global)}
+                onChange={e => setForm(p => ({ ...p, is_global: e.target.value === 'true' }))}
+                className="w-full px-3 py-2 rounded-lg bg-brand-bg border border-brand-border text-white text-sm focus:outline-none focus:border-brand-accent"
+              >
+                <option value="true">글로벌</option>
+                <option value="false">지역</option>
+              </select>
+            </div>
+          </div>
+          <button
+            onClick={handleAdd}
+            disabled={submitting || !form.event_id.trim() || !form.display_name.trim()}
+            className="px-4 py-2 rounded-lg bg-brand-accent text-white text-sm font-medium hover:bg-brand-accent/80 disabled:opacity-50 transition-all"
+          >
+            {submitting ? '저장 중...' : '저장'}
+          </button>
+        </div>
+      )}
+
+      {/* 이벤트 목록 */}
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-brand-border">
+              <th className="px-5 py-2 text-left text-gray-400 font-medium text-xs">event_id</th>
+              <th className="px-5 py-2 text-left text-gray-400 font-medium text-xs">표시명</th>
+              <th className="px-5 py-2 text-left text-gray-400 font-medium text-xs">연도</th>
+              <th className="px-5 py-2 text-left text-gray-400 font-medium text-xs">구분</th>
+              <th className="px-5 py-2 w-12"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={5} className="px-5 py-6 text-center text-gray-500 text-xs">불러오는 중...</td></tr>
+            ) : entries.length === 0 ? (
+              <tr><td colSpan={5} className="px-5 py-6 text-center text-gray-500 text-xs">등록된 이벤트가 없습니다</td></tr>
+            ) : (
+              years.flatMap(year =>
+                entries
+                  .filter(e => e.year === year)
+                  .map(e => (
+                    <tr key={e.event_id} className="border-b border-brand-border last:border-0 group hover:bg-white/5">
+                      <td className="px-5 py-2 font-mono text-brand-accent text-xs">{e.event_id}</td>
+                      <td className="px-5 py-2 text-gray-300 text-xs">{e.display_name}</td>
+                      <td className="px-5 py-2 text-gray-500 text-xs">{e.year}</td>
+                      <td className="px-5 py-2 text-xs">
+                        {e.is_global
+                          ? <span className="text-green-400">글로벌</span>
+                          : <span className="text-gray-500">지역</span>}
+                      </td>
+                      <td className="px-5 py-2 text-right">
+                        <button
+                          onClick={async () => {
+                            if (!confirm(`"${e.event_id}" 을 삭제하시겠습니까?\n삭제 후 이 event_id로 업로드가 불가합니다.`)) return
+                            const { error } = await onDelete(e.event_id)
+                            if (error) alert(`삭제 오류: ${error}`)
+                          }}
+                          className="text-xs text-gray-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                        >
+                          삭제
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+              )
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
@@ -527,6 +742,9 @@ function ResetPanel() {
 export default function DataUploadPage() {
   const [unlocked, setUnlocked]   = useState(!UPLOAD_PASSWORD)
   const [activeTab, setActiveTab] = useState<UploadTab>('viewership')
+  const [reanalyzeKey, setReanalyzeKey] = useState(0)
+
+  const { entries, loading, addEntry, removeEntry } = useEventMaster()
 
   if (!unlocked) return <PasswordGate onUnlock={() => setUnlocked(true)} />
 
@@ -543,6 +761,14 @@ export default function DataUploadPage() {
             탭별로 데이터를 업로드합니다. 업로드 실패 시 기존 데이터는 보존됩니다.
           </p>
         </div>
+
+        {/* 이벤트 마스터 관리 (탭 공통) */}
+        <EventMasterPanel
+          entries={entries}
+          loading={loading}
+          onAdd={addEntry}
+          onDelete={removeEntry}
+        />
 
         {/* 탭 */}
         <div className="flex gap-0 border-b border-brand-border">
@@ -569,7 +795,12 @@ export default function DataUploadPage() {
         </div>
 
         {/* 탭 콘텐츠 */}
-        <UploadPanel key={activeTab} tab={activeTab} />
+        <UploadPanel
+          key={`${activeTab}-${reanalyzeKey}`}
+          tab={activeTab}
+          onAddEntry={addEntry}
+          onReanalyzeReady={() => setReanalyzeKey(k => k + 1)}
+        />
 
         {/* 데이터 초기화 (하단 위험 영역) */}
         <ResetPanel />
