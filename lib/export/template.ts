@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx'
-import { MIN_YEAR } from '@/lib/config/constants'
+import { EVENT_MASTER } from '@/lib/config/event-master'
 
 function makeSheet(headers: string[], rows: (string | number)[][]) {
   const ws = XLSX.utils.aoa_to_sheet([headers, ...rows])
@@ -11,18 +11,30 @@ function toBytes(wb: XLSX.WorkBook): Uint8Array {
   return new Uint8Array(XLSX.write(wb, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer)
 }
 
+/** 유효 event_id 목록 시트 — 모든 템플릿에 공통 첨부 */
+function makeEventIdSheet() {
+  return makeSheet(
+    ['event_id', 'display_name', 'year', 'is_global'],
+    EVENT_MASTER.map(e => [e.event_id, e.display_name, e.year, e.is_global ? 'true' : 'false']),
+  )
+}
+
 /** template_viewership.xlsx */
 export function generateViewershipTemplate(): Uint8Array {
   const wb = XLSX.utils.book_new()
+  // Platform: 비워두면 Type A (통합), 입력하면 Type B (플랫폼 분리)
   XLSX.utils.book_append_sheet(wb, makeSheet(
-    ['Year', 'Event', 'Platform', 'Date', 'PCCV', 'ACCV', 'Unique Viewers', 'Stability Ratio'],
+    ['event_id', 'Platform (Optional)', 'PCCV', 'ACCV', 'Unique Viewers', 'Stability Ratio'],
     [
-      [2025, 'PNC 2025', 'total',   '2025-08-03', 423000, 187000, 1840000, ''],
-      [2025, 'PNC 2025', 'twitch',  '2025-08-03', 180000, 82000,  '',       ''],
-      [2025, 'PNC 2025', 'youtube', '2025-08-03', 243000, 105000, '',       ''],
-      [2025, 'PGC 2025', 'total',   '',            '',     '',     '',       ''],
+      // Type A 예시 — Platform 비워두기
+      ['PNC_2025',  '',        850000, 420000, 2100000, '자동계산'],
+      // Type B 예시 — Platform 별도 입력
+      ['PGC_2025',  'Twitch',  500000, 240000, 1200000, '자동계산'],
+      ['PGC_2025',  'YouTube', 280000, 140000,  700000, '자동계산'],
+      ['PGC_2025',  'Afreeca',  70000,  40000,  200000, '자동계산'],
     ],
   ), 'Viewership')
+  XLSX.utils.book_append_sheet(wb, makeEventIdSheet(), '유효 event_id 목록')
   return toBytes(wb)
 }
 
@@ -30,15 +42,16 @@ export function generateViewershipTemplate(): Uint8Array {
 export function generateContentsTemplate(): Uint8Array {
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, makeSheet(
-    ['Year', 'Event', 'Platform', 'Region / Language', 'Content Type 1', 'Content Type 2',
-     'Number of Contents', 'Impression', 'Views', 'Likes', 'Comments', 'Published Date'],
+    ['event_id', 'Platform', 'Region / Language', 'Content Type 1', 'Content Type 2',
+     'Number of Contents', 'Impression', 'Views', 'Likes', 'Comments'],
     [
-      [2025, 'PNC 2025', 'instagram', 'KR', '숏폼',  '하이라이트', 12,  2800000, 740000,  45000, 3200, '2025-08-04'],
-      [2025, 'PNC 2025', 'youtube',   'EN', '롱폼',  '하이라이트', 5,   1200000, 980000,  22000, 1800, '2025-08-04'],
-      [2025, 'PNC 2025', 'tiktok',    'KR', '숏폼',  '프로모션',   20,  4500000, 3200000, 88000, 5500, '2025-08-04'],
-      [2025, 'PNC 2025', 'x',         'EN', '포스트', '하이핑',     30,  980000,  0,       12000, 900,  '2025-08-04'],
+      ['PNC_2025', 'Instagram', 'KR', '숏폼',  '하이라이트', 12,  2800000, 740000,  45000, 3200],
+      ['PNC_2025', 'YouTube',   'EN', '롱폼',  '하이라이트', 5,   1200000, 980000,  22000, 1800],
+      ['PNC_2025', 'TikTok',    'KR', '숏폼',  '프로모션',   20,  4500000, 3200000, 88000, 5500],
+      ['PNC_2025', 'X',         'EN', '포스트', '하이핑',     30,   980000,       0, 12000,  900],
     ],
   ), 'Contents')
+  XLSX.utils.book_append_sheet(wb, makeEventIdSheet(), '유효 event_id 목록')
   return toBytes(wb)
 }
 
@@ -46,14 +59,15 @@ export function generateContentsTemplate(): Uint8Array {
 export function generateCostreamingTemplate(): Uint8Array {
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, makeSheet(
-    ['Year', 'Event', 'Region / Language', 'Streamer Name', 'Platform', 'PCCV', 'ACCV', 'Cost', 'Currency'],
+    ['event_id', 'Region / Language', 'Streamer Name', 'Platform', 'PCCV', 'ACCV', 'Cost', 'Currency'],
     [
-      [2025, 'PNC 2025', 'KR', 'StreamerA', 'sooptv',  85000, 42000, 3000000, 'KRW'],
-      [2025, 'PNC 2025', 'KR', 'StreamerB', 'chzzk',   62000, 31000, 2500000, 'KRW'],
-      [2025, 'PNC 2025', 'EN', 'StreamerC', 'twitch',  45000, 22000, 2000,    'USD'],
-      [2025, 'PNC 2025', 'JP', 'StreamerD', 'youtube', 28000, 14000, 150000,  'JPY'],
+      ['PNC_2025', 'KR', 'StreamerA', 'SoopTV',  85000, 42000, 3000000, 'KRW'],
+      ['PNC_2025', 'KR', 'StreamerB', 'Chzzk',   62000, 31000, 2500000, 'KRW'],
+      ['PNC_2025', 'EN', 'StreamerC', 'Twitch',  45000, 22000,    2000, 'USD'],
+      ['PNC_2025', 'JP', 'StreamerD', 'YouTube', 28000, 14000,  150000, 'JPY'],
     ],
   ), 'Co-streaming')
+  XLSX.utils.book_append_sheet(wb, makeEventIdSheet(), '유효 event_id 목록')
   return toBytes(wb)
 }
 

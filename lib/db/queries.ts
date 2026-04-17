@@ -294,6 +294,52 @@ export async function saveTypedKpisToSupabase(
   }
 }
 
+// ─── 전체 초기화 ───────────────────────────────────────────────────────────
+
+/**
+ * Supabase 의 모든 KPI 데이터 + 이벤트를 삭제합니다.
+ * 1) events 테이블에서 UUID 목록을 먼저 조회
+ * 2) 그 UUID 로 KPI 자식 테이블을 삭제 (.in() 은 항상 안전하게 동작)
+ * 3) events 삭제
+ */
+export async function clearAllSupabaseData(): Promise<{ error: string | null }> {
+  try {
+    // 1. 전체 이벤트 UUID 조회
+    const { data: evRows, error: fetchErr } = await supabase
+      .from('events')
+      .select('id')
+
+    if (fetchErr) return { error: `이벤트 조회 실패: ${fetchErr.message}` }
+    if (!evRows?.length) return { error: null }   // 이미 비어 있음
+
+    const ids = evRows.map((r: { id: string }) => r.id)
+
+    // 2. KPI 자식 테이블 삭제 (FK 제약 해소)
+    const kpiDeletes = await Promise.all([
+      supabase.from('viewership_kpis').delete().in('event_id', ids),
+      supabase.from('social_kpis').delete().in('event_id', ids),
+      supabase.from('broadcast_kpis').delete().in('event_id', ids),
+      supabase.from('competitive_kpis').delete().in('event_id', ids),
+      supabase.from('live_event_kpis').delete().in('event_id', ids),
+      supabase.from('kpi_targets').delete().in('event_id', ids),
+    ])
+    for (const res of kpiDeletes) {
+      if (res.error) return { error: `KPI 삭제 실패: ${res.error.message}` }
+    }
+
+    // 3. events 삭제
+    const { error: evDelErr } = await supabase
+      .from('events')
+      .delete()
+      .in('id', ids)
+    if (evDelErr) return { error: `이벤트 삭제 실패: ${evDelErr.message}` }
+
+    return { error: null }
+  } catch (e) {
+    return { error: String(e) }
+  }
+}
+
 // ─── 불러오기 ──────────────────────────────────────────────────────────────
 
 export async function loadFromSupabase(): Promise<DashboardData | null> {

@@ -3,7 +3,11 @@
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { useDashboardData } from '@/lib/hooks/useDashboardData'
-import { isGlobalEvent } from '@/lib/config/constants'
+import {
+  getAllYears,
+  getEventsByYear,
+  getDisplayName,
+} from '@/lib/config/event-master'
 import { getCostreamingAggregated } from '@/lib/store'
 import { formatNumber } from '@/lib/utils'
 import { cn } from '@/lib/utils'
@@ -48,23 +52,12 @@ function KpiGroup({ title, children }: { title: string; children: React.ReactNod
 }
 
 function StatCard({
-  label,
-  value,
-  unit,
-  caption,
-  disabled,
+  label, value, unit, caption, disabled,
 }: {
-  label: string
-  value?: number | null
-  unit?: string
-  caption?: string
-  disabled?: boolean
+  label: string; value?: number | null; unit?: string; caption?: string; disabled?: boolean
 }) {
   return (
-    <div className={cn(
-      'bg-brand-surface border border-brand-border rounded-xl p-5 space-y-2',
-      disabled && 'opacity-50',
-    )}>
+    <div className={cn('bg-brand-surface border border-brand-border rounded-xl p-5 space-y-2', disabled && 'opacity-50')}>
       <p className="text-sm text-gray-400 font-medium">{label}</p>
       <div>
         {disabled || value == null ? (
@@ -76,9 +69,7 @@ function StatCard({
           </>
         )}
       </div>
-      {caption && (
-        <p className="text-xs text-gray-600 leading-relaxed">{caption}</p>
-      )}
+      {caption && <p className="text-xs text-gray-600 leading-relaxed">{caption}</p>}
     </div>
   )
 }
@@ -87,43 +78,45 @@ export default function CostreamingPage() {
   const { data, loading } = useDashboardData()
 
   const [filterYear,   setFilterYear]   = useState('')
-  const [filterEvent,  setFilterEvent]  = useState('')
+  const [filterEvent,  setFilterEvent]  = useState('')  // EVENT_MASTER event_id
   const [filterRegion, setFilterRegion] = useState('')
 
-  const globalEvents = useMemo(() => {
-    if (!data) return []
-    const globals = data.events.filter(e => isGlobalEvent(e.type))
-    return globals.length > 0 ? globals : data.events
-  }, [data])
+  // 연도 옵션 — EVENT_MASTER 기준
+  const yearOptions = getAllYears().map(String)
 
-  const yearOptions = useMemo(() =>
-    Array.from(new Set(globalEvents.map(e => String(e.year)))).sort((a, b) => Number(b) - Number(a)),
-    [globalEvents]
-  )
-
+  // 대회 옵션 — 선택 연도의 EVENT_MASTER 항목
   const eventOptions = useMemo(() =>
-    globalEvents
-      .filter(e => !filterYear || String(e.year) === filterYear)
-      .sort((a, b) => a.start_date.localeCompare(b.start_date)),
-    [globalEvents, filterYear]
+    filterYear ? getEventsByYear(Number(filterYear)) : [],
+    [filterYear]
   )
+
+  // event_id → Supabase UUID
+  const toUUID = (eid: string) => data?.events.find(e => e.name === eid)?.id
+
+  // 필터 적용된 Supabase UUID 목록
+  const filteredUUIDs = useMemo(() => {
+    if (!data) return []
+    if (filterEvent) {
+      const uuid = toUUID(filterEvent)
+      return uuid ? [uuid] : []
+    }
+    if (filterYear) {
+      return getEventsByYear(Number(filterYear))
+        .map(e => toUUID(e.event_id))
+        .filter((id): id is string => Boolean(id))
+    }
+    return data.events.map(e => e.id)
+  }, [data, filterEvent, filterYear]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const regionOptions = useMemo(() => {
     if (!data) return []
     return Array.from(new Set(data.broadcast.map(b => b.region).filter(Boolean))) as string[]
   }, [data])
 
-  // 필터 적용된 이벤트 ID 목록
-  const filteredEventIds = useMemo(() => {
-    if (filterEvent) return [filterEvent]
-    return eventOptions.map(e => e.id)
-  }, [filterEvent, eventOptions])
-
-  // KPI 집계
   const coKpi = useMemo(() => {
     if (!data) return null
-    return getCostreamingAggregated(data, filteredEventIds, filterRegion || undefined)
-  }, [data, filteredEventIds, filterRegion])
+    return getCostreamingAggregated(data, filteredUUIDs, filterRegion || undefined)
+  }, [data, filteredUUIDs, filterRegion])
 
   const avgPeakView = coKpi && coKpi.streamer_count > 0
     ? Math.round(coKpi.peak_view_sum / coKpi.streamer_count)
@@ -135,21 +128,6 @@ export default function CostreamingPage() {
 
   if (loading && !data) return <div className="min-h-screen bg-brand-bg" />
 
-  if (!data || !data.events.length) {
-    return (
-      <main className="min-h-screen bg-brand-bg text-white flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <p className="text-5xl">📂</p>
-          <h2 className="text-xl font-bold">업로드된 데이터가 없습니다</h2>
-          <p className="text-gray-400 text-sm">엑셀 파일을 업로드하면 코스트리밍 성과를 확인할 수 있습니다.</p>
-          <Link href="/data-upload" className="inline-block mt-2 px-5 py-2.5 rounded-lg bg-brand-accent text-white text-sm font-medium hover:bg-brand-accent/80">
-            데이터 업로드 →
-          </Link>
-        </div>
-      </main>
-    )
-  }
-
   return (
     <main className="min-h-screen bg-brand-bg text-white">
       <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
@@ -160,28 +138,45 @@ export default function CostreamingPage() {
           <p className="text-sm text-gray-400 mt-1">코스트리밍 스트리머 참여 현황 및 시청자 지표</p>
         </div>
 
+        {/* 데이터 없음 안내 */}
+        {!data?.events.length && (
+          <div className="bg-brand-surface border border-brand-border rounded-xl p-6 flex items-center justify-between">
+            <p className="text-sm text-gray-400">업로드된 데이터가 없습니다.</p>
+            <Link href="/data-upload" className="px-4 py-2 rounded-lg bg-brand-accent text-white text-sm font-medium hover:bg-brand-accent/80">
+              데이터 업로드 →
+            </Link>
+          </div>
+        )}
+
         {/* 3개 필터 */}
         <section className="bg-brand-surface border border-brand-border rounded-xl p-5">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {/* 연도 */}
             <FilterSelect
               label="연도"
               value={filterYear}
               onChange={v => { setFilterYear(v); setFilterEvent('') }}
               options={yearOptions}
             />
+            {/* 대회 */}
             <div className="flex flex-col gap-1">
               <label className="text-xs text-gray-500 font-medium uppercase tracking-wider">대회</label>
               <select
                 value={filterEvent}
                 onChange={e => setFilterEvent(e.target.value)}
-                className="bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-accent transition-colors"
+                disabled={eventOptions.length === 0}
+                className={cn(
+                  'bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-accent transition-colors',
+                  eventOptions.length === 0 && 'opacity-40 cursor-not-allowed',
+                )}
               >
                 <option value="">전체</option>
                 {eventOptions.map(e => (
-                  <option key={e.id} value={e.id}>{e.name}</option>
+                  <option key={e.event_id} value={e.event_id}>{e.display_name}</option>
                 ))}
               </select>
             </div>
+            {/* 지역 */}
             <FilterSelect
               label="지역 (언어)"
               value={filterRegion}
@@ -190,27 +185,22 @@ export default function CostreamingPage() {
               placeholder={regionOptions.length === 0 ? '데이터 없음' : '전체'}
             />
           </div>
+
           {filterEvent && (
             <div className="mt-3 pt-3 border-t border-brand-border">
               <p className="text-xs text-gray-400">
-                선택 이벤트: <span className="text-white font-medium">
-                  {data.events.find(e => e.id === filterEvent)?.name ?? filterEvent}
-                </span>
+                선택 이벤트: <span className="text-white font-medium">{getDisplayName(filterEvent)}</span>
               </p>
             </div>
           )}
         </section>
 
-        {/* ── 그룹 1: 스트리머 규모 ── */}
+        {/* KPI 그룹 1: 스트리머 규모 */}
         <KpiGroup title="스트리머 규모">
-          <StatCard
-            label="스트리머 수"
-            value={coKpi?.streamer_count}
-            unit="명"
-          />
+          <StatCard label="스트리머 수" value={coKpi?.streamer_count} unit="명" />
         </KpiGroup>
 
-        {/* ── 그룹 2: 시청자 지표 ── */}
+        {/* KPI 그룹 2: 시청자 지표 */}
         <KpiGroup title="시청자 지표">
           <StatCard
             label="Peak View 합산"
@@ -232,7 +222,7 @@ export default function CostreamingPage() {
           />
         </KpiGroup>
 
-        {/* ── 그룹 3: ROI ── */}
+        {/* KPI 그룹 3: ROI */}
         <KpiGroup title="ROI">
           <StatCard
             label="언어별 ROI"
@@ -244,7 +234,7 @@ export default function CostreamingPage() {
         </KpiGroup>
 
         {/* 이벤트별 상세 테이블 */}
-        {data.broadcast.filter(b => filteredEventIds.includes(b.event_id)).length > 0 && (
+        {data && data.broadcast.filter(b => filteredUUIDs.includes(b.event_id)).length > 0 && (
           <section className="bg-brand-surface border border-brand-border rounded-xl overflow-hidden">
             <div className="px-5 py-4 border-b border-brand-border">
               <h2 className="text-sm font-semibold text-gray-300">이벤트별 상세</h2>
@@ -262,15 +252,17 @@ export default function CostreamingPage() {
                 <tbody>
                   {data.broadcast
                     .filter(b => {
-                      if (!filteredEventIds.includes(b.event_id)) return false
+                      if (!filteredUUIDs.includes(b.event_id)) return false
                       if (filterRegion && b.region !== filterRegion) return false
                       return true
                     })
                     .map((row, i) => {
-                      const event = data.events.find(e => e.id === row.event_id)
+                      const eventName = data.events.find(e => e.id === row.event_id)?.name
                       return (
                         <tr key={i} className="border-b border-brand-border last:border-0 hover:bg-white/5">
-                          <td className="px-5 py-3 text-white font-medium">{event?.name ?? '—'}</td>
+                          <td className="px-5 py-3 text-white font-medium">
+                            {eventName ? getDisplayName(eventName) : '—'}
+                          </td>
                           <td className="px-5 py-3 text-right text-gray-300 tabular-nums">
                             {row.co_streamer_count != null ? formatNumber(row.co_streamer_count) : '—'}
                           </td>

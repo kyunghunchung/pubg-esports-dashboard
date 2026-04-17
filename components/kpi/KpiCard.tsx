@@ -9,6 +9,7 @@ interface BadgeProp {
 interface Props {
   label: string
   sublabel?: string   // 카드 상단 보조 설명
+  caption?: string    // 카드 하단 주석 (예: ※ 플랫폼별 PCCV 합산)
   value: number
   unit?: string
   target?: number
@@ -24,7 +25,7 @@ const BADGE_STYLE: Record<BadgeProp['color'], string> = {
   red:    'text-red-400 bg-red-400/10 border-red-400/20',
 }
 
-export function KpiCard({ label, sublabel, value, unit, target, yoy, disabled, badge, className }: Props) {
+export function KpiCard({ label, sublabel, caption, value, unit, target, yoy, disabled, badge, className }: Props) {
   const hasYoy = yoy !== undefined && !disabled
   const yoyPositive = hasYoy && yoy! >= 0
 
@@ -79,6 +80,9 @@ export function KpiCard({ label, sublabel, value, unit, target, yoy, disabled, b
 
       {target !== undefined && !disabled && (
         <GoalGauge actual={value} target={target} label={`목표: ${formatNumber(target)}${unit ?? ''}`} />
+      )}
+      {caption && !disabled && (
+        <p className="text-xs text-gray-600 leading-relaxed">{caption}</p>
       )}
     </div>
   )

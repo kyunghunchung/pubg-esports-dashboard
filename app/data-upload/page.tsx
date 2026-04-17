@@ -3,8 +3,8 @@
 import { useState, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
-import { saveData } from '@/lib/store'
-import { saveTypedKpisToSupabase, loadFromSupabase } from '@/lib/db/queries'
+import { saveData, clearData } from '@/lib/store'
+import { saveTypedKpisToSupabase, loadFromSupabase, clearAllSupabaseData } from '@/lib/db/queries'
 import {
   parseViewershipFile,
   parseContentsFile,
@@ -17,6 +17,7 @@ import {
   generateContentsTemplate,
   generateCostreamingTemplate,
 } from '@/lib/export/template'
+import { EVENT_MASTER } from '@/lib/config/event-master'
 
 // ── 업로드 히스토리 (localStorage) ──────────────────────────────
 const HISTORY_KEY = 'pubg_upload_history_v1'
@@ -244,6 +245,34 @@ function UploadPanel({ tab }: { tab: UploadTab }) {
   return (
     <div className="space-y-6">
 
+      {/* 0. 허용 이벤트 ID 안내 */}
+      <div className="bg-brand-surface border border-brand-border rounded-xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-brand-border">
+          <h3 className="text-sm font-semibold text-white">허용 이벤트 ID</h3>
+          <p className="text-xs text-gray-400 mt-0.5">
+            업로드 파일의 <code className="bg-brand-bg px-1 py-0.5 rounded text-brand-accent">event_id</code> 컬럼에는 아래 값을 정확히 입력하세요
+          </p>
+        </div>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-brand-border">
+              <th className="px-5 py-2 text-left text-gray-400 font-medium text-xs">event_id</th>
+              <th className="px-5 py-2 text-left text-gray-400 font-medium text-xs">표시명</th>
+              <th className="px-5 py-2 text-left text-gray-400 font-medium text-xs">연도</th>
+            </tr>
+          </thead>
+          <tbody>
+            {EVENT_MASTER.map(e => (
+              <tr key={e.event_id} className="border-b border-brand-border last:border-0">
+                <td className="px-5 py-2 font-mono text-brand-accent text-xs">{e.event_id}</td>
+                <td className="px-5 py-2 text-gray-300 text-xs">{e.display_name}</td>
+                <td className="px-5 py-2 text-gray-500 text-xs">{e.year}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
       {/* 1. 템플릿 다운로드 */}
       <div className="bg-brand-surface border border-brand-border rounded-xl p-6 space-y-3">
         <h3 className="text-sm font-semibold text-white">템플릿 다운로드</h3>
@@ -448,6 +477,52 @@ function UploadHistory({ history }: { history: HistoryEntry[] }) {
   )
 }
 
+// ── 전체 초기화 패널 ────────────────────────────────────────────
+function ResetPanel() {
+  const [resetting, setResetting] = useState(false)
+  const [done, setDone]           = useState(false)
+
+  async function handleReset() {
+    if (!window.confirm(
+      '⚠️ 모든 데이터를 삭제합니다.\n\nSupabase에 저장된 이벤트, 뷰어십, 콘텐츠, 코스트리밍 데이터가 모두 삭제됩니다.\n계속하시겠습니까?'
+    )) return
+
+    setResetting(true)
+    try {
+      const { error } = await clearAllSupabaseData()
+      if (error) { alert(`초기화 오류: ${error}`); return }
+      clearData()   // localStorage 캐시 삭제
+      setDone(true)
+      // 2초 후 페이지 새로고침 — 모든 컴포넌트 상태 초기화
+      setTimeout(() => window.location.reload(), 2000)
+    } finally {
+      setResetting(false)
+    }
+  }
+
+  return (
+    <div className="border border-red-500/20 bg-red-500/5 rounded-xl p-5 space-y-3">
+      <div>
+        <h3 className="text-sm font-semibold text-red-400">데이터 전체 초기화</h3>
+        <p className="text-xs text-gray-500 mt-1">
+          Supabase와 로컬 캐시의 모든 KPI 데이터를 삭제합니다. 삭제 후 새 템플릿을 업로드해 채워넣으세요.
+        </p>
+      </div>
+      {done ? (
+        <p className="text-xs text-green-400 font-medium">✓ 초기화 완료. 이제 새 데이터를 업로드하세요.</p>
+      ) : (
+        <button
+          onClick={handleReset}
+          disabled={resetting}
+          className="px-4 py-2 rounded-lg border border-red-500/40 text-red-400 text-sm font-medium hover:bg-red-500/10 transition-all disabled:opacity-50"
+        >
+          {resetting ? '삭제 중...' : '모든 데이터 삭제'}
+        </button>
+      )}
+    </div>
+  )
+}
+
 // ── 메인 페이지 ──────────────────────────────────────────────────
 export default function DataUploadPage() {
   const [unlocked, setUnlocked]   = useState(!UPLOAD_PASSWORD)
@@ -465,7 +540,7 @@ export default function DataUploadPage() {
         <div>
           <h1 className="text-2xl font-bold">Data Upload</h1>
           <p className="text-sm text-gray-400 mt-1">
-            각 성과 페이지의 데이터를 탭별로 업로드합니다. 업로드 실패 시 기존 데이터는 보존됩니다.
+            탭별로 데이터를 업로드합니다. 업로드 실패 시 기존 데이터는 보존됩니다.
           </p>
         </div>
 
@@ -495,6 +570,9 @@ export default function DataUploadPage() {
 
         {/* 탭 콘텐츠 */}
         <UploadPanel key={activeTab} tab={activeTab} />
+
+        {/* 데이터 초기화 (하단 위험 영역) */}
+        <ResetPanel />
 
       </div>
     </main>

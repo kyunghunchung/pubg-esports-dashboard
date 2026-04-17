@@ -30,10 +30,43 @@ export function clearData(): void {
 
 // ── 쿼리 헬퍼 ──────────────────────────────────────────────────────────────
 
+/**
+ * Type B (플랫폼별) 데이터가 있으면 합산 집계값을 반환 (v6 우선순위).
+ * Type B 없고 Type A ('total') 만 있으면 Type A 행을 직접 반환.
+ */
 export function getViewershipTotal(data: DashboardData, eventId: string): ViewershipKpi | null {
+  // Type B (플랫폼별) 우선 — 있으면 합산
+  const perPlatform = data.viewership.filter(v => v.event_id === eventId && v.platform !== 'total')
+  if (perPlatform.length > 0) {
+    const peak_ccv       = perPlatform.reduce((s, v) => s + (v.peak_ccv ?? 0), 0) || undefined
+    const acvTotal       = perPlatform.reduce((s, v) => s + (v.acv ?? 0), 0)
+    const acv            = acvTotal > 0 ? acvTotal : undefined
+    const unique_viewers = perPlatform.reduce((s, v) => s + (v.unique_viewers ?? 0), 0) || undefined
+    return {
+      id: 'aggregate', event_id: eventId,
+      platform: 'total' as ViewershipKpi['platform'],
+      peak_ccv, acv, unique_viewers,
+      recorded_at: perPlatform[0].recorded_at,
+    }
+  }
+
+  // Type A (통합) 폴백 — 'total' 행 직접 사용
   return data.viewership
     .filter(v => v.event_id === eventId && v.platform === 'total')
     .sort((a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime())[0] ?? null
+}
+
+/**
+ * 단일 이벤트의 뷰어십 데이터 타입 반환.
+ * 'B' = 플랫폼별 분리 데이터 존재 (Type B 우선)
+ * 'A' = 통합 데이터만 존재 (Type A)
+ * 'none' = 데이터 없음
+ */
+export function getViewershipDataType(data: DashboardData, eventId: string): 'A' | 'B' | 'none' {
+  const rows = data.viewership.filter(v => v.event_id === eventId)
+  if (rows.some(v => v.platform !== 'total')) return 'B'
+  if (rows.some(v => v.platform === 'total'))  return 'A'
+  return 'none'
 }
 
 export function getViewershipByPlatform(data: DashboardData, eventId: string): ViewershipKpi[] {

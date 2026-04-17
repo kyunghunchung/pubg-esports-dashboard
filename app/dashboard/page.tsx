@@ -5,12 +5,17 @@ import Link from 'next/link'
 import {
   getViewershipTotal,
   getViewershipByPlatform,
+  getViewershipDataType,
   getKpiTargets,
   getContentAggregated,
   getSocialAggregatedByPlatform,
 } from '@/lib/store'
 import { useDashboardData } from '@/lib/hooks/useDashboardData'
-import { isGlobalEvent } from '@/lib/config/constants'
+import {
+  getAllYears,
+  getGlobalEventsByYear,
+  getDisplayName,
+} from '@/lib/config/event-master'
 import { KpiCard } from '@/components/kpi/KpiCard'
 import { TournamentFilter } from '@/components/dashboard/TournamentFilter'
 import dynamic from 'next/dynamic'
@@ -26,72 +31,57 @@ const SocialPlatformChart = dynamic(
 
 export default function DashboardPage() {
   const { data, loading } = useDashboardData()
+  // selectedIds = EVENT_MASTER event_id 배열 (예: ['PNC_2025'])
   const [selectedIds, setSelectedIds] = useState<string[]>([])
 
+  // 기본 선택: 최신 연도 첫 번째 글로벌 이벤트 (EVENT_MASTER 기준)
   useEffect(() => {
-    if (!data?.events?.length) return
-
-    const globals = data.events.filter(e => isGlobalEvent(e.type))
-    const display = globals.length > 0 ? globals : data.events
-
-    const years = Array.from(new Set(display.map(e => e.year))).sort((a, b) => b - a)
+    const years = getAllYears()
+    if (!years.length) return
     const latestYear = years[0]
-    const latestIds = display
-      .filter(e => e.year === latestYear)
-      .map(e => e.id)
+    const globals = getGlobalEventsByYear(latestYear)
+    const defaultIds = globals.length > 0 ? [globals[0].event_id] : []
 
-    const allIds = display.map(e => e.id)
-    const stillValid = selectedIds.length > 0 && selectedIds.every(id => allIds.includes(id))
-    if (!stillValid) setSelectedIds(latestIds)
-  }, [data]) // eslint-disable-line react-hooks/exhaustive-deps
+    // 현재 선택이 EVENT_MASTER 에 없는 경우에만 초기화
+    const allMasterIds = globals.map(e => e.event_id)
+    const stillValid = selectedIds.length > 0 && selectedIds.every(id => allMasterIds.includes(id))
+    if (!stillValid) setSelectedIds(defaultIds)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading && !data) return <div className="min-h-screen bg-brand-bg" />
 
-  if (!data || !data.events.length) {
-    return (
-      <main className="min-h-screen bg-brand-bg text-white flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <p className="text-5xl">📂</p>
-          <h2 className="text-xl font-bold">업로드된 데이터가 없습니다</h2>
-          <p className="text-gray-400 text-sm">엑셀 파일을 업로드하면 대시보드가 채워집니다.</p>
-          <Link
-            href="/data-upload"
-            className="inline-block mt-2 px-5 py-2.5 rounded-lg bg-brand-accent text-white text-sm font-medium hover:bg-brand-accent/80 transition-all"
-          >
-            데이터 업로드 →
-          </Link>
-        </div>
-      </main>
-    )
-  }
-
+  // 데이터 없어도 필터는 EVENT_MASTER 기준으로 렌더링
   const isSingleEvent = selectedIds.length === 1
-  const singleEvent   = isSingleEvent ? data.events.find(e => e.id === selectedIds[0]) : null
+  const singleEventId = isSingleEvent ? selectedIds[0] : null
 
-  // ── Viewership KPI (단일 이벤트만) ──
-  const total      = isSingleEvent ? getViewershipTotal(data, selectedIds[0]) : null
-  const byPlatform = isSingleEvent ? getViewershipByPlatform(data, selectedIds[0]) : []
-  const targets    = isSingleEvent ? getKpiTargets(data, selectedIds[0]) : []
+  // event_id → Supabase UUID 매핑 (KPI 쿼리용)
+  const toUUID = (eid: string) => data?.events.find(e => e.name === eid)?.id
+  const singleUUID   = singleEventId ? (toUUID(singleEventId) ?? null) : null
+  const selectedUUIDs = selectedIds.map(toUUID).filter((id): id is string => Boolean(id))
+
+  // ── Viewership KPI (단일 이벤트 + Supabase UUID 있을 때만) ──
+  const total          = singleUUID ? getViewershipTotal(data!, singleUUID) : null
+  const byPlatform     = singleUUID ? getViewershipByPlatform(data!, singleUUID) : []
+  const viewershipType = singleUUID ? getViewershipDataType(data!, singleUUID) : 'none'
+  const isTypeBData    = viewershipType === 'B'
+  const targets        = singleUUID ? getKpiTargets(data!, singleUUID) : []
 
   const getTarget = (metric: string) =>
     targets.find(t => t.metric === metric)?.target_value
 
-  // Stability Ratio = ACCV ÷ PCCV × 100 (단일 이벤트, 시스템 자동 계산)
   const pccv = total?.peak_ccv ?? 0
   const accv = total?.acv ?? 0
   const stabilityRatio = pccv > 0 ? Math.round((accv / pccv) * 100) : null
 
-  // ── Contents KPI (항상 집계) ──
-  const content = getContentAggregated(data, selectedIds)
+  // ── Contents KPI (항상 집계, UUID 기준) ──
+  const content = data ? getContentAggregated(data, selectedUUIDs) : { impressions: 0, content_count: 0 }
 
-  // ── 플랫폼별 CCV 차트 (단일 이벤트) ──
+  // ── 차트 데이터 ──
   const ccvChartData = byPlatform.map(v => ({
     platform: v.platform,
     peak_ccv: v.peak_ccv ?? 0,
   }))
-
-  // ── 소셜 차트 (항상 집계) ──
-  const socialChartData = getSocialAggregatedByPlatform(data, selectedIds)
+  const socialChartData = data ? getSocialAggregatedByPlatform(data, selectedUUIDs) : []
 
   return (
     <main className="min-h-screen bg-brand-bg text-white">
@@ -101,21 +91,38 @@ export default function DashboardPage() {
         <div>
           <h1 className="text-2xl font-bold">PUBG Esports Dashboard</h1>
           <p className="text-sm text-gray-400 mt-1">
-            {singleEvent
-              ? `${singleEvent.name}${singleEvent.venue ? ` · ${singleEvent.venue}` : ''}`
+            {singleEventId
+              ? getDisplayName(singleEventId)
               : `${selectedIds.length}개 이벤트 선택됨`}
-            <span className="ml-2 text-xs text-gray-500">
-              업로드: {new Date(data.uploadedAt).toLocaleDateString('ko-KR')}
-            </span>
+            {data && (
+              <span className="ml-2 text-xs text-gray-500">
+                업로드: {new Date(data.uploadedAt).toLocaleDateString('ko-KR')}
+              </span>
+            )}
           </p>
         </div>
 
-        {/* 필터 */}
+        {/* 필터 (EVENT_MASTER 기준, 데이터 없어도 표시) */}
         <TournamentFilter
-          events={data.events}
           selectedIds={selectedIds}
           onChange={setSelectedIds}
         />
+
+        {/* 데이터 미업로드 안내 (필터 아래에 배치) */}
+        {!data?.events.length && (
+          <div className="bg-brand-surface border border-brand-border rounded-xl p-6 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-300">업로드된 데이터가 없습니다</p>
+              <p className="text-xs text-gray-500 mt-0.5">엑셀 파일을 업로드하면 KPI 카드가 채워집니다.</p>
+            </div>
+            <Link
+              href="/data-upload"
+              className="shrink-0 px-4 py-2 rounded-lg bg-brand-accent text-white text-sm font-medium hover:bg-brand-accent/80 transition-all"
+            >
+              데이터 업로드 →
+            </Link>
+          </div>
+        )}
 
         {/* ── 섹션 A: Viewership KPI ── */}
         <section className="space-y-3">
@@ -137,6 +144,7 @@ export default function DashboardPage() {
               unit="명"
               target={getTarget('peak_ccv')}
               disabled={!isSingleEvent}
+              caption={isTypeBData ? '※ 플랫폼별 PCCV 합산 수치입니다' : undefined}
             />
             <KpiCard
               label="ACCV"
@@ -177,28 +185,24 @@ export default function DashboardPage() {
             Contents
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <KpiCard
-              label="Impression"
-              value={content.impressions}
-              unit="회"
-            />
-            <KpiCard
-              label="Number of Contents"
-              value={content.content_count}
-              unit="건"
-            />
+            <KpiCard label="Impression"        value={content.impressions}   unit="회" />
+            <KpiCard label="Number of Contents" value={content.content_count} unit="건" />
           </div>
         </section>
 
-        {/* ── 차트 1: 플랫폼별 CCV (단일 이벤트만) ── */}
+        {/* ── 차트 1: 플랫폼별 PCCV ── */}
         {isSingleEvent ? (
-          ccvChartData.length > 0 ? (
+          isTypeBData && ccvChartData.length > 0 ? (
             <section className="bg-brand-surface border border-brand-border rounded-xl p-6">
               <div className="mb-4">
                 <h2 className="text-sm font-semibold text-gray-300">플랫폼별 PCCV</h2>
-                <p className="text-xs text-gray-500 mt-0.5">{singleEvent?.name}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{singleEventId ? getDisplayName(singleEventId) : ''}</p>
               </div>
               <PlatformCcvChart data={ccvChartData} />
+            </section>
+          ) : viewershipType === 'A' ? (
+            <section className="bg-brand-surface border border-brand-border rounded-xl p-6 flex items-center justify-center h-32">
+              <p className="text-sm text-gray-500">플랫폼별 데이터가 없습니다 (통합 데이터만 업로드됨)</p>
             </section>
           ) : null
         ) : (
@@ -207,7 +211,7 @@ export default function DashboardPage() {
           </section>
         )}
 
-        {/* ── 차트 2: 소셜 채널별 성과 (항상 집계) ── */}
+        {/* ── 차트 2: 소셜 채널별 성과 ── */}
         {socialChartData.length > 0 && (
           <section className="bg-brand-surface border border-brand-border rounded-xl p-6">
             <div className="mb-4">
