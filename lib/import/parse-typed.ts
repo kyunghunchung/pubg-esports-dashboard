@@ -73,11 +73,12 @@ export function parseViewershipFile(buffer: ArrayBuffer): TypedParseResult {
       ? 'total'
       : (normalizeViewershipPlatform(plRaw) ?? plRaw.toLowerCase())
 
-    const peakCcv      = num(raw['Peak CCV'])
+    const peakCcv       = num(raw['PCCV'])
+    const accv          = num(raw['ACCV'])
     const uniqueViewers = num(raw['Unique Viewers'])
-    const hoursWatched  = num(raw['Hours Watched'])
+    // Stability Ratio 컬럼은 업로드값 무시 — 시스템이 ACCV ÷ PCCV 로 자동 계산
 
-    if (!peakCcv && !uniqueViewers && !hoursWatched) return  // 빈 행 스킵
+    if (!peakCcv && !accv && !uniqueViewers) return  // 빈 행 스킵
 
     const event = resolveOrCreateEvent(name, year, events)
     if (!events.find(e => e.id === event.id)) events.push(event)
@@ -92,8 +93,8 @@ export function parseViewershipFile(buffer: ArrayBuffer): TypedParseResult {
       event_id: event.id,
       platform: platform as ViewershipKpi['platform'],
       peak_ccv: peakCcv,
+      acv: accv,
       unique_viewers: uniqueViewers,
-      hours_watched: hoursWatched,
       recorded_at,
     })
   })
@@ -201,7 +202,7 @@ export function parseCostreamingFile(buffer: ArrayBuffer): TypedParseResult {
     const key  = `${event.id}::${region}`
     const cur  = agg.get(key) ?? { event, region, streamer_count: 0, peak_view_sum: 0, accv_sum: 0, accv_count: 0, cost_usd: 0 }
 
-    const peakView = numOrZero(raw['Peak View'])
+    const peakView = numOrZero(raw['PCCV'])
     const accv     = numOrZero(raw['ACCV'])
     const cost     = numOrZero(raw['Cost'])
     const currency = str(raw['Currency']).toUpperCase()

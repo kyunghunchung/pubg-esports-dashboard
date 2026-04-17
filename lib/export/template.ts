@@ -15,12 +15,12 @@ function toBytes(wb: XLSX.WorkBook): Uint8Array {
 export function generateViewershipTemplate(): Uint8Array {
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, makeSheet(
-    ['Year', 'Event', 'Platform', 'Date', 'Peak CCV', 'Unique Viewers', 'Hours Watched'],
+    ['Year', 'Event', 'Platform', 'Date', 'PCCV', 'ACCV', 'Unique Viewers', 'Stability Ratio'],
     [
-      [2025, 'PNC 2025', 'total',   '2025-08-03', 423000, 1840000, 3712000],
-      [2025, 'PNC 2025', 'twitch',  '2025-08-03', 180000, '', ''],
-      [2025, 'PNC 2025', 'youtube', '2025-08-03', 243000, '', ''],
-      [2025, 'PGC 2025', 'total',   '', '', '', ''],
+      [2025, 'PNC 2025', 'total',   '2025-08-03', 423000, 187000, 1840000, ''],
+      [2025, 'PNC 2025', 'twitch',  '2025-08-03', 180000, 82000,  '',       ''],
+      [2025, 'PNC 2025', 'youtube', '2025-08-03', 243000, 105000, '',       ''],
+      [2025, 'PGC 2025', 'total',   '',            '',     '',     '',       ''],
     ],
   ), 'Viewership')
   return toBytes(wb)
@@ -46,7 +46,7 @@ export function generateContentsTemplate(): Uint8Array {
 export function generateCostreamingTemplate(): Uint8Array {
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, makeSheet(
-    ['Year', 'Event', 'Region / Language', 'Streamer Name', 'Platform', 'Peak View', 'ACCV', 'Cost', 'Currency'],
+    ['Year', 'Event', 'Region / Language', 'Streamer Name', 'Platform', 'PCCV', 'ACCV', 'Cost', 'Currency'],
     [
       [2025, 'PNC 2025', 'KR', 'StreamerA', 'sooptv',  85000, 42000, 3000000, 'KRW'],
       [2025, 'PNC 2025', 'KR', 'StreamerB', 'chzzk',   62000, 31000, 2500000, 'KRW'],

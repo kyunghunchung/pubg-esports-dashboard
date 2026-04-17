@@ -76,6 +76,11 @@ export default function DashboardPage() {
   const getTarget = (metric: string) =>
     targets.find(t => t.metric === metric)?.target_value
 
+  // Stability Ratio = ACCV ÷ PCCV × 100 (단일 이벤트, 시스템 자동 계산)
+  const pccv = total?.peak_ccv ?? 0
+  const accv = total?.acv ?? 0
+  const stabilityRatio = pccv > 0 ? Math.round((accv / pccv) * 100) : null
+
   // ── Contents KPI (항상 집계) ──
   const content = getContentAggregated(data, selectedIds)
 
@@ -124,27 +129,44 @@ export default function DashboardPage() {
               </span>
             )}
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <KpiCard
-              label="Peak CCV"
-              value={total?.peak_ccv ?? 0}
+              label="PCCV"
+              sublabel="Peak Concurrent Viewers"
+              value={pccv}
               unit="명"
               target={getTarget('peak_ccv')}
               disabled={!isSingleEvent}
             />
             <KpiCard
-              label="Unique Viewers"
+              label="ACCV"
+              sublabel="Average Concurrent Viewers"
+              value={accv}
+              unit="명"
+              target={getTarget('acv')}
+              disabled={!isSingleEvent}
+            />
+            <KpiCard
+              label="UV"
+              sublabel="Unique Viewers"
               value={total?.unique_viewers ?? 0}
               unit="명"
               target={getTarget('unique_viewers')}
               disabled={!isSingleEvent}
             />
             <KpiCard
-              label="Hours Watched"
-              value={total?.hours_watched ?? 0}
-              unit="시간"
-              target={getTarget('hours_watched')}
+              label="Stability Ratio"
+              sublabel="ACCV ÷ PCCV"
+              value={stabilityRatio ?? 0}
+              unit="%"
               disabled={!isSingleEvent}
+              badge={
+                stabilityRatio !== null
+                  ? stabilityRatio >= 70 ? { text: '안정적', color: 'green' }
+                  : stabilityRatio >= 50 ? { text: '보통',   color: 'yellow' }
+                  :                        { text: '편차 큼', color: 'red' }
+                  : undefined
+              }
             />
           </div>
         </section>
@@ -173,7 +195,7 @@ export default function DashboardPage() {
           ccvChartData.length > 0 ? (
             <section className="bg-brand-surface border border-brand-border rounded-xl p-6">
               <div className="mb-4">
-                <h2 className="text-sm font-semibold text-gray-300">플랫폼별 Peak CCV</h2>
+                <h2 className="text-sm font-semibold text-gray-300">플랫폼별 PCCV</h2>
                 <p className="text-xs text-gray-500 mt-0.5">{singleEvent?.name}</p>
               </div>
               <PlatformCcvChart data={ccvChartData} />
