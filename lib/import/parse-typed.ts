@@ -10,6 +10,7 @@ import {
   EVENT_MASTER,
   getEventMasterById,
   validateEventId,
+  normalizeEventId,
   type EventMasterEntry,
 } from '@/lib/config/event-master'
 import { normalizeViewershipPlatform, normalizeSocialPlatform } from '@/lib/config/constants'
@@ -51,7 +52,7 @@ function preValidateEventIds(rows: Record<string, unknown>[]): { row: number; me
   const errors: { row: number; message: string }[] = []
   const seen = new Set<string>()
   rows.forEach((raw, i) => {
-    const eid = str(raw['event_id'])
+    const eid = normalizeEventId(str(raw['event_id']))
     if (!eid) return  // 빈 행은 각 파서에서 처리
     if (seen.has(eid)) return  // 이미 검증된 ID는 스킵
     seen.add(eid)
@@ -96,7 +97,7 @@ export function parseViewershipFile(buffer: ArrayBuffer): TypedParseResult {
 
   rows.forEach((raw, i) => {
     const rowNum   = i + 2
-    const eventId  = str(raw['event_id'])
+    const eventId  = normalizeEventId(str(raw['event_id']))
     if (!eventId) return  // 빈 행 스킵
 
     const master = getEventMasterById(eventId)!  // preValidate 통과했으므로 반드시 존재
@@ -169,7 +170,7 @@ export function parseContentsFile(buffer: ArrayBuffer): TypedParseResult {
 
   rows.forEach((raw, i) => {
     const rowNum  = i + 2
-    const eventId = str(raw['event_id'])
+    const eventId = normalizeEventId(str(raw['event_id']))
     const plRaw   = str(raw['Platform'])
 
     if (!eventId || !plRaw) {
@@ -240,7 +241,7 @@ export function parseCostreamingFile(buffer: ArrayBuffer): TypedParseResult {
 
   rows.forEach((raw, i) => {
     const rowNum  = i + 2
-    const eventId = str(raw['event_id'])
+    const eventId = normalizeEventId(str(raw['event_id']))
     if (!eventId) return
 
     const master = getEventMasterById(eventId)!

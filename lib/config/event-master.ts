@@ -23,6 +23,17 @@ export const EVENT_MASTER: EventMasterEntry[] = [
   { event_id: 'EWC_2025',  display_name: 'EWC 2025',  year: 2025, is_global: true,  sort_order: 3 },
   { event_id: 'PGC_2025',  display_name: 'PGC 2025',  year: 2025, is_global: true,  sort_order: 4 },
   { event_id: 'ENC_2025',  display_name: 'ENC 2025',  year: 2025, is_global: false, sort_order: 5 },
+  // ── 2024 ───────────────────────────────────────────────────────
+  { event_id: 'PGS3_2024', display_name: 'PGS3 2024', year: 2024, is_global: true,  sort_order: 1 },
+  { event_id: 'PGS4_2024', display_name: 'PGS4 2024', year: 2024, is_global: true,  sort_order: 2 },
+  { event_id: 'EWC_2024',  display_name: 'EWC 2024',  year: 2024, is_global: true,  sort_order: 3 },
+  { event_id: 'PNC_2024',  display_name: 'PNC 2024',  year: 2024, is_global: true,  sort_order: 4 },
+  { event_id: 'PGC_2024',  display_name: 'PGC 2024',  year: 2024, is_global: true,  sort_order: 5 },
+  // ── 2023 ───────────────────────────────────────────────────────
+  { event_id: 'PGS1_2023', display_name: 'PGS1 2023', year: 2023, is_global: true,  sort_order: 1 },
+  { event_id: 'PGS2_2023', display_name: 'PGS2 2023', year: 2023, is_global: true,  sort_order: 2 },
+  { event_id: 'PNC_2023',  display_name: 'PNC 2023',  year: 2023, is_global: true,  sort_order: 3 },
+  { event_id: 'PGC_2023',  display_name: 'PGC 2023',  year: 2023, is_global: true,  sort_order: 4 },
 ]
 
 /** event_id → EventMasterEntry. 없으면 undefined */
@@ -50,10 +61,16 @@ export function getGlobalEventsByYear(year: number): EventMasterEntry[] {
   return getEventsByYear(year).filter(e => e.is_global)
 }
 
+/** event_id 입력값 정규화: 공백 제거 (예: "PGS 1_2023" → "PGS1_2023") */
+export function normalizeEventId(raw: string): string {
+  return raw.replace(/\s+/g, '')
+}
+
 /** 업로드 파일의 event_id 문자열 검증. 실패 시 오류 메시지 반환 */
 export function validateEventId(raw: string): string | null {
   if (!raw) return 'event_id 값이 비어 있습니다.'
-  if (!getEventMasterById(raw)) {
+  const normalized = normalizeEventId(raw)
+  if (!getEventMasterById(normalized)) {
     const valid = EVENT_MASTER.map(e => e.event_id).join(', ')
     return `등록되지 않은 이벤트입니다: "${raw}"\n유효한 event_id: ${valid}`
   }
