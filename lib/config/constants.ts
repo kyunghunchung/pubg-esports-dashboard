@@ -77,15 +77,23 @@ export function isGlobalEvent(type: EventTypeId): boolean {
  * 입력값(표시명 or ID)을 정규화된 플랫폼 ID로 변환.
  * 대소문자·공백 무시. 매칭 실패 시 null 반환.
  */
+// 구 명칭 → 현재 플랫폼 ID 별칭 (Afreeca → SoopTV 등 리브랜딩 대응)
+const VIEWERSHIP_PLATFORM_ALIASES: Record<string, ViewershipPlatformId> = {
+  afreeca:      'sooptv',
+  afreecatv:    'sooptv',
+  'afreeca tv': 'sooptv',
+  soop:         'sooptv',
+  nimo:         'nimotv',
+}
+
 export function normalizeViewershipPlatform(input: string): ViewershipPlatformId | null {
   const lower = input.toLowerCase().trim()
-  // ID 직접 매칭
   if (lower in VIEWERSHIP_PLATFORMS) return lower as ViewershipPlatformId
-  // label 매칭 (치지직 등 한글 포함)
   const found = Object.entries(VIEWERSHIP_PLATFORMS).find(
     ([, label]) => label.toLowerCase() === lower
   )
-  return found ? (found[0] as ViewershipPlatformId) : null
+  if (found) return found[0] as ViewershipPlatformId
+  return VIEWERSHIP_PLATFORM_ALIASES[lower] ?? null
 }
 
 export function normalizeSocialPlatform(input: string): SocialPlatformId | null {

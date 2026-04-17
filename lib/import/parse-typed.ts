@@ -14,6 +14,29 @@ function str(v: unknown) { return String(v ?? '').trim() }
 function num(v: unknown): number | undefined { const n = Number(v); return isNaN(n) || n === 0 ? undefined : n }
 function numOrZero(v: unknown): number { return Number(v) || 0 }
 
+/** Excel 날짜 시리얼 넘버 또는 문자열을 ISO 날짜 문자열로 변환 */
+function toISODate(val: unknown, fallbackYear?: number): string {
+  if (!val) return fallbackYear ? new Date(fallbackYear, 11, 31).toISOString() : new Date().toISOString()
+  // Excel 시리얼 넘버 (숫자형 날짜)
+  if (typeof val === 'number') {
+    const d = XLSX.SSF.parse_date_code(val)
+    return new Date(d.y, d.m - 1, d.d).toISOString()
+  }
+  // Date 객체 (cellDates: true 시)
+  if (val instanceof Date) return val.toISOString()
+  // 문자열 파싱
+  const parsed = new Date(String(val).trim())
+  return isNaN(parsed.getTime())
+    ? (fallbackYear ? new Date(fallbackYear, 11, 31).toISOString() : new Date().toISOString())
+    : parsed.toISOString()
+}
+
+/** 필수 컬럼 존재 여부 검사. 누락 시 오류 메시지 반환 */
+function checkRequiredColumns(row: Record<string, unknown>, required: string[]): string | null {
+  const missing = required.filter(col => !(col in row))
+  return missing.length ? `필수 컬럼 누락: ${missing.join(', ')}` : null
+}
+
 function makeEventId(name: string, year: number | string) {
   return name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_') + '_' + year
 }
@@ -45,57 +68,61 @@ export interface TypedParseResult {
 }
 
 // ── Viewership 파서 ─────────────────────────────────────────────
-// 컬럼: Year | Event | Platform | Date | Peak CCV | Unique Viewers | Hours Watched
+// 컬럼: Year | Event | Platform | Date | PCCV | ACCV | Unique Viewers | Stability Ratio(무시)
 
 export function parseViewershipFile(buffer: ArrayBuffer): TypedParseResult {
-  const wb     = XLSX.read(buffer, { type: 'array' })
-  const ws     = wb.Sheets[wb.SheetNames[0]]
-  const rows   = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '' })
+  const wb   = XLSX.read(buffer, { type: 'array', cellDates: true })
+  const ws   = wb.Sheets[wb.SheetNames[0]]
+  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '' })
 
-  const events: Event[]           = []
+  const events: Event[]             = []
   const viewership: ViewershipKpi[] = []
   const errors: { row: number; message: string }[] = []
 
-  const REQUIRED = ['Year', 'Event', 'Platform']
+  // 첫 행으로 필수 컬럼 검증
+  if (rows.length > 0) {
+    const colError = checkRequiredColumns(rows[0], ['Year', 'Event', 'Platform'])
+    if (colError) return { events, errors: [{ row: 1, message: colError }], rowCount: 0 }
+  }
 
   rows.forEach((raw, i) => {
     const rowNum = i + 2
-    const year  = Number(raw['Year'])
-    const name  = str(raw['Event'])
-    const plRaw = str(raw['Platform'])
+    const year   = Number(raw['Year'])
+    const name   = str(raw['Event'])
+    const plRaw  = str(raw['Platform'])
 
     if (!year || !name) {
       if (year || name) errors.push({ row: rowNum, message: 'Year 또는 Event 누락' })
       return
     }
 
-    const platform = plRaw.toLowerCase() === 'total'
+    // 플랫폼 정규화 — 알 수 없는 플랫폼도 소문자로 허용 (경고만)
+    const normalizedPlatform = plRaw.toLowerCase() === 'total'
       ? 'total'
-      : (normalizeViewershipPlatform(plRaw) ?? plRaw.toLowerCase())
+      : normalizeViewershipPlatform(plRaw)
+    if (!normalizedPlatform) {
+      errors.push({ row: rowNum, message: `알 수 없는 플랫폼: "${plRaw}" (twitch/youtube/sooptv/chzzk/kick/nimotv/afreeca/total 중 하나)` })
+      return
+    }
 
     const peakCcv       = num(raw['PCCV'])
     const accv          = num(raw['ACCV'])
     const uniqueViewers = num(raw['Unique Viewers'])
-    // Stability Ratio 컬럼은 업로드값 무시 — 시스템이 ACCV ÷ PCCV 로 자동 계산
+    // Stability Ratio 컬럼 무시 — 시스템이 ACCV ÷ PCCV 로 자동 계산
 
     if (!peakCcv && !accv && !uniqueViewers) return  // 빈 행 스킵
 
     const event = resolveOrCreateEvent(name, year, events)
     if (!events.find(e => e.id === event.id)) events.push(event)
 
-    const dateRaw = raw['Date']
-    const recorded_at = dateRaw
-      ? new Date(str(dateRaw)).toISOString()
-      : new Date(year, 11, 31).toISOString()
-
     viewership.push({
-      id: crypto.randomUUID(),
-      event_id: event.id,
-      platform: platform as ViewershipKpi['platform'],
-      peak_ccv: peakCcv,
-      acv: accv,
+      id:             crypto.randomUUID(),
+      event_id:       event.id,
+      platform:       normalizedPlatform as ViewershipKpi['platform'],
+      peak_ccv:       peakCcv,
+      acv:            accv,
       unique_viewers: uniqueViewers,
-      recorded_at,
+      recorded_at:    toISODate(raw['Date'], year),
     })
   })
 
@@ -107,7 +134,7 @@ export function parseViewershipFile(buffer: ArrayBuffer): TypedParseResult {
 //        | Number of Contents | Impression | Views | Likes | Comments | Published Date
 
 export function parseContentsFile(buffer: ArrayBuffer): TypedParseResult {
-  const wb   = XLSX.read(buffer, { type: 'array' })
+  const wb   = XLSX.read(buffer, { type: 'array', cellDates: true })
   const ws   = wb.Sheets[wb.SheetNames[0]]
   const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '' })
 
@@ -153,7 +180,7 @@ export function parseContentsFile(buffer: ArrayBuffer): TypedParseResult {
       region:         str(raw['Region / Language'] ?? raw['Region/Language']) || undefined,
       content_type_1: str(raw['Content Type 1']) || undefined,
       content_type_2: str(raw['Content Type 2']) || undefined,
-      recorded_at: dateRaw ? new Date(str(dateRaw)).toISOString() : new Date().toISOString(),
+      recorded_at: toISODate(dateRaw),
     })
   })
 
@@ -166,7 +193,7 @@ export function parseContentsFile(buffer: ArrayBuffer): TypedParseResult {
 // 집계: 동일 Event + Region → BroadcastKpi 1개로 그룹화
 
 export function parseCostreamingFile(buffer: ArrayBuffer): TypedParseResult {
-  const wb   = XLSX.read(buffer, { type: 'array' })
+  const wb   = XLSX.read(buffer, { type: 'array', cellDates: true })
   const ws   = wb.Sheets[wb.SheetNames[0]]
   const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '' })
 

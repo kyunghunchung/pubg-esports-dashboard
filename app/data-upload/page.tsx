@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback } from 'react'
+import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { saveData } from '@/lib/store'
 import { saveTypedKpisToSupabase, loadFromSupabase } from '@/lib/db/queries'
@@ -264,13 +265,21 @@ function UploadPanel({ tab }: { tab: UploadTab }) {
         {done ? (
           <div className="rounded-xl border border-green-500/30 bg-green-500/10 p-5 space-y-3">
             <p className="text-sm font-semibold text-green-400">✓ 적용 완료</p>
-            <p className="text-xs text-gray-400">데이터가 대시보드에 반영되었습니다.</p>
-            <button
-              onClick={reset}
-              className="px-4 py-2 rounded-lg border border-brand-border text-gray-400 text-sm hover:text-white transition-colors"
-            >
-              추가 업로드
-            </button>
+            <p className="text-xs text-gray-400">데이터가 Supabase에 저장되었고 대시보드에 반영됩니다.</p>
+            <div className="flex gap-2">
+              <Link
+                href="/dashboard"
+                className="px-4 py-2 rounded-lg bg-brand-accent text-white text-sm font-medium hover:bg-brand-accent/80 transition-all"
+              >
+                대시보드 보기 →
+              </Link>
+              <button
+                onClick={reset}
+                className="px-4 py-2 rounded-lg border border-brand-border text-gray-400 text-sm hover:text-white transition-colors"
+              >
+                추가 업로드
+              </button>
+            </div>
           </div>
         ) : (
           <>
@@ -327,15 +336,23 @@ function UploadPanel({ tab }: { tab: UploadTab }) {
                   </span>
                 </div>
 
+                {/* 0행 + 오류: 컬럼 형식 오류 가능성 강조 */}
+                {result.rowCount === 0 && result.errors.length === 0 && (
+                  <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-lg p-4">
+                    <p className="text-sm font-semibold text-yellow-400">인식된 데이터 없음</p>
+                    <p className="text-xs text-gray-400 mt-1">컬럼명이 템플릿과 다를 수 있습니다. 템플릿을 다운로드해서 형식을 확인해주세요.</p>
+                  </div>
+                )}
+
                 {/* 오류 목록 */}
                 {result.errors.length > 0 && (
                   <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-4 space-y-1">
                     <p className="text-sm font-semibold text-red-400">오류 {result.errors.length}건</p>
-                    {result.errors.slice(0, 5).map((e, i) => (
+                    {result.errors.slice(0, 8).map((e, i) => (
                       <p key={i} className="text-xs text-red-300">{e.row}행: {e.message}</p>
                     ))}
-                    {result.errors.length > 5 && (
-                      <p className="text-xs text-gray-500">...외 {result.errors.length - 5}건</p>
+                    {result.errors.length > 8 && (
+                      <p className="text-xs text-gray-500">...외 {result.errors.length - 8}건</p>
                     )}
                   </div>
                 )}
