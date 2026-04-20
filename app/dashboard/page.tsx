@@ -37,23 +37,36 @@ const ContentsTrendChart = dynamic(
 
 export default function DashboardPage() {
   const { data, loading } = useDashboardData()
-  // selectedIds = EVENT_MASTER event_id 배열 (예: ['PNC_2025'])
-  const [selectedIds, setSelectedIds] = useState<string[]>([])
+
+  // selectedIds — localStorage에 유지해서 네비게이션 후에도 선택 유지
+  const [selectedIds, setSelectedIds] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return []
+    try {
+      const saved = localStorage.getItem('dashboard_selected_ids')
+      if (saved) return JSON.parse(saved) as string[]
+    } catch { /* ignore */ }
+    return []
+  })
   const [trendPeriod, setTrendPeriod] = useState<'monthly' | 'weekly'>('monthly')
   const [trendMetric, setTrendMetric] = useState<'impressions' | 'content_count' | 'engagements' | 'video_views'>('impressions')
 
-  // 기본 선택: 최신 연도 첫 번째 글로벌 이벤트 (EVENT_MASTER 기준)
+  function updateSelectedIds(ids: string[]) {
+    setSelectedIds(ids)
+    try { localStorage.setItem('dashboard_selected_ids', JSON.stringify(ids)) } catch { /* ignore */ }
+  }
+
+  // 기본 선택: 최신 연도 첫 번째 글로벌 이벤트 (EVENT_MASTER 기준) — 저장된 값 없을 때만
   useEffect(() => {
     const years = getAllYears()
     if (!years.length) return
     const latestYear = years[0]
     const globals = getGlobalEventsByYear(latestYear)
-    const defaultIds = globals.length > 0 ? [globals[0].event_id] : []
-
-    // 현재 선택이 EVENT_MASTER 에 없는 경우에만 초기화
-    const allMasterIds = globals.map(e => e.event_id)
+    const allMasterIds = getAllYears().flatMap(y => getGlobalEventsByYear(y).map(e => e.event_id))
     const stillValid = selectedIds.length > 0 && selectedIds.every(id => allMasterIds.includes(id))
-    if (!stillValid) setSelectedIds(defaultIds)
+    if (!stillValid) {
+      const defaultIds = globals.length > 0 ? [globals[0].event_id] : []
+      updateSelectedIds(defaultIds)
+    }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Hooks (early return 이전에 모두 선언) ──
@@ -122,7 +135,7 @@ export default function DashboardPage() {
         {/* 필터 (EVENT_MASTER 기준, 데이터 없어도 표시) */}
         <TournamentFilter
           selectedIds={selectedIds}
-          onChange={setSelectedIds}
+          onChange={updateSelectedIds}
         />
 
         {/* 데이터 미업로드 안내 (필터 아래에 배치) */}
