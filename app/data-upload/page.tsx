@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef } from 'react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { saveData, clearData } from '@/lib/store'
@@ -505,14 +505,16 @@ function EventMasterPanel({
   const [showForm, setShowForm] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [saving, setSaving]     = useState(false)
-  const [dragId, setDragId]     = useState<string | null>(null)
+
+  // dragId는 ref로 관리 — async 클로저에서 항상 최신값 보장
+  const dragIdRef               = useRef<string | null>(null)
+  const [dragId, setDragId]     = useState<string | null>(null)   // 시각적 표시용
   const [dragOverId, setDragOverId] = useState<string | null>(null)
 
   const years = Array.from(new Set(entries.map(e => e.year))).sort((a, b) => b - a)
 
   function openAdd() {
-    const maxSortOrder = entries.filter(e => e.year === form.year).reduce((m, e) => Math.max(m, e.sort_order), 0)
-    setForm({ ...BLANK, sort_order: maxSortOrder + 1 })
+    setForm({ ...BLANK })
     setEditMode('add')
     setShowForm(true)
   }
@@ -531,20 +533,44 @@ function EventMasterPanel({
   async function handleSave() {
     if (!form.event_id.trim() || !form.display_name.trim()) return
     setSubmitting(true)
-    const { error } = await onAdd(form)
+
+    // sort_order: 저장 시점의 form.year 기준 max+1 (form open 시점이 아닌 submit 시점에 계산)
+    const finalEntry = editMode === 'add'
+      ? {
+          ...form,
+          sort_order: entries
+            .filter(e => e.year === form.year)
+            .reduce((m, e) => Math.max(m, e.sort_order), 0) + 1,
+        }
+      : form
+
+    const { error } = await onAdd(finalEntry)
     if (error) alert(`저장 오류: ${error}`)
     else closeForm()
     setSubmitting(false)
   }
 
+  function startDrag(id: string) {
+    dragIdRef.current = id
+    setDragId(id)
+  }
+
+  function endDrag() {
+    dragIdRef.current = null
+    setDragId(null)
+    setDragOverId(null)
+  }
+
   async function handleDrop(targetId: string, year: number) {
-    if (!dragId || dragId === targetId) return
+    const fromId = dragIdRef.current   // ref에서 읽어 stale closure 방지
+    if (!fromId || fromId === targetId) return
+
     const sorted = entries
       .filter(e => e.year === year)
       .sort((a, b) => a.sort_order - b.sort_order)
-    const fromIdx = sorted.findIndex(e => e.event_id === dragId)
+    const fromIdx = sorted.findIndex(e => e.event_id === fromId)
     const toIdx   = sorted.findIndex(e => e.event_id === targetId)
-    if (fromIdx === -1 || toIdx === -1) return
+    if (fromIdx === -1 || toIdx === -1) return  // 다른 연도의 항목은 무시
 
     const reordered = [...sorted]
     const [moved] = reordered.splice(fromIdx, 1)
@@ -665,11 +691,11 @@ function EventMasterPanel({
                   <tr
                     key={e.event_id}
                     draggable={!saving}
-                    onDragStart={() => setDragId(e.event_id)}
-                    onDragOver={ev => { ev.preventDefault(); if (dragId && dragId !== e.event_id) setDragOverId(e.event_id) }}
+                    onDragStart={() => startDrag(e.event_id)}
+                    onDragOver={ev => { ev.preventDefault(); if (dragIdRef.current && dragIdRef.current !== e.event_id) setDragOverId(e.event_id) }}
                     onDragLeave={() => setDragOverId(null)}
-                    onDrop={async ev => { ev.preventDefault(); setDragOverId(null); await handleDrop(e.event_id, year); setDragId(null) }}
-                    onDragEnd={() => { setDragId(null); setDragOverId(null) }}
+                    onDrop={async ev => { ev.preventDefault(); setDragOverId(null); await handleDrop(e.event_id, year); endDrag() }}
+                    onDragEnd={endDrag}
                     className={cn(
                       'border-b border-brand-border last:border-0 group transition-all select-none',
                       saving ? 'opacity-50' : 'cursor-grab active:cursor-grabbing',
