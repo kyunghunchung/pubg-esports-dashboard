@@ -56,6 +56,20 @@ export default function DashboardPage() {
     if (!stillValid) setSelectedIds(defaultIds)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Hooks (early return 이전에 모두 선언) ──
+  const selectedUUIDs = useMemo(
+    () => selectedIds.map((eid: string) => data?.events.find(e => e.name === eid)?.id).filter((id): id is string => Boolean(id)),
+    [data, selectedIds],
+  )
+  const hasDateData = useMemo(
+    () => data ? hasSocialDateData(data, selectedUUIDs) : false,
+    [data, selectedUUIDs],
+  )
+  const trendData = useMemo(() => {
+    if (!data || !hasDateData) return []
+    return getSocialTrend(data, selectedUUIDs, trendPeriod)
+  }, [data, selectedUUIDs, trendPeriod, hasDateData])
+
   if (loading && !data) return <div className="min-h-screen bg-brand-bg" />
 
   // 데이터 없어도 필터는 EVENT_MASTER 기준으로 렌더링
@@ -64,8 +78,7 @@ export default function DashboardPage() {
 
   // event_id → Supabase UUID 매핑 (KPI 쿼리용)
   const toUUID = (eid: string) => data?.events.find(e => e.name === eid)?.id
-  const singleUUID   = singleEventId ? (toUUID(singleEventId) ?? null) : null
-  const selectedUUIDs = selectedIds.map(toUUID).filter((id): id is string => Boolean(id))
+  const singleUUID = singleEventId ? (toUUID(singleEventId) ?? null) : null
 
   // ── Viewership KPI (단일 이벤트 + Supabase UUID 있을 때만) ──
   const total          = singleUUID ? getViewershipTotal(data!, singleUUID) : null
@@ -77,18 +90,8 @@ export default function DashboardPage() {
   const accv = total?.acv ?? 0
   const stabilityRatio = pccv > 0 ? Math.round((accv / pccv) * 100) : null
 
-  // ── Contents KPI (항상 집계, UUID 기준) ──
+  // ── Contents KPI ──
   const content = data ? getContentAggregated(data, selectedUUIDs) : { impressions: 0, content_count: 0 }
-
-  // ── Contents 트렌드 ──
-  const hasDateData = useMemo(
-    () => data ? hasSocialDateData(data, selectedUUIDs) : false,
-    [data, selectedUUIDs],
-  )
-  const trendData = useMemo(() => {
-    if (!data || !hasDateData) return []
-    return getSocialTrend(data, selectedUUIDs, trendPeriod)
-  }, [data, selectedUUIDs, trendPeriod, hasDateData])
 
   // ── 차트 데이터 ──
   const ccvChartData = byPlatform.map(v => ({
