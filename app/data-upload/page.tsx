@@ -491,35 +491,64 @@ function EventMasterPanel({
   loading,
   onAdd,
   onDelete,
+  onReorder,
 }: {
   entries: EventMasterEntry[]
   loading: boolean
   onAdd: (entry: EventMasterEntry) => Promise<{ error: string | null }>
   onDelete: (event_id: string) => Promise<{ error: string | null }>
+  onReorder: (a: EventMasterEntry, b: EventMasterEntry) => Promise<{ error: string | null }>
 }) {
+  const BLANK: EventMasterEntry = { event_id: '', display_name: '', year: new Date().getFullYear(), is_global: true, sort_order: 99 }
+  const [form, setForm]         = useState<EventMasterEntry>(BLANK)
+  const [editMode, setEditMode] = useState<'add' | 'edit'>('add')
   const [showForm, setShowForm] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [form, setForm] = useState<EventMasterEntry>({
-    event_id: '', display_name: '', year: new Date().getFullYear(), is_global: true, sort_order: 99,
-  })
+  const [reordering, setReordering] = useState(false)
 
-  // 연도별 그룹
   const years = Array.from(new Set(entries.map(e => e.year))).sort((a, b) => b - a)
 
-  async function handleAdd() {
+  function openAdd() {
+    const maxSortOrder = entries.filter(e => e.year === form.year).reduce((m, e) => Math.max(m, e.sort_order), 0)
+    setForm({ ...BLANK, sort_order: maxSortOrder + 1 })
+    setEditMode('add')
+    setShowForm(true)
+  }
+
+  function openEdit(e: EventMasterEntry) {
+    setForm({ ...e })
+    setEditMode('edit')
+    setShowForm(true)
+  }
+
+  function closeForm() {
+    setShowForm(false)
+    setForm(BLANK)
+  }
+
+  async function handleSave() {
     if (!form.event_id.trim() || !form.display_name.trim()) return
     setSubmitting(true)
     const { error } = await onAdd(form)
-    if (error) alert(`추가 오류: ${error}`)
-    else {
-      setShowForm(false)
-      setForm({ event_id: '', display_name: '', year: new Date().getFullYear(), is_global: true, sort_order: 99 })
-    }
+    if (error) alert(`저장 오류: ${error}`)
+    else closeForm()
     setSubmitting(false)
+  }
+
+  async function handleReorder(entry: EventMasterEntry, dir: 'up' | 'down') {
+    const sorted = entries.filter(e => e.year === entry.year).sort((a, b) => a.sort_order - b.sort_order)
+    const idx = sorted.findIndex(e => e.event_id === entry.event_id)
+    const swapIdx = dir === 'up' ? idx - 1 : idx + 1
+    if (swapIdx < 0 || swapIdx >= sorted.length) return
+    setReordering(true)
+    const { error } = await onReorder(entry, sorted[swapIdx])
+    if (error) alert(`순서 변경 오류: ${error}`)
+    setReordering(false)
   }
 
   return (
     <div className="bg-brand-surface border border-brand-border rounded-xl overflow-hidden">
+      {/* 헤더 */}
       <div className="px-5 py-4 border-b border-brand-border flex items-center justify-between">
         <div>
           <h3 className="text-sm font-semibold text-white">이벤트 마스터 관리</h3>
@@ -528,24 +557,31 @@ function EventMasterPanel({
           </p>
         </div>
         <button
-          onClick={() => setShowForm(v => !v)}
+          onClick={showForm ? closeForm : openAdd}
           className="px-3 py-1.5 rounded-lg bg-brand-accent/20 border border-brand-accent/40 text-brand-accent text-xs font-medium hover:bg-brand-accent/30 transition-all"
         >
           {showForm ? '취소' : '+ 이벤트 추가'}
         </button>
       </div>
 
-      {/* 추가 폼 */}
+      {/* 추가 / 수정 폼 */}
       {showForm && (
         <div className="px-5 py-4 border-b border-brand-border bg-brand-bg/40 space-y-3">
+          <p className="text-xs font-medium text-gray-400">
+            {editMode === 'edit' ? `수정 중: ${form.event_id}` : '새 이벤트 등록'}
+          </p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div>
               <label className="text-xs text-gray-500 mb-1 block">event_id *</label>
               <input
                 value={form.event_id}
+                readOnly={editMode === 'edit'}
                 onChange={e => setForm(p => ({ ...p, event_id: e.target.value.replace(/\s+/g, '').toUpperCase() }))}
                 placeholder="PGC_2022"
-                className="w-full px-3 py-2 rounded-lg bg-brand-bg border border-brand-border text-white text-sm focus:outline-none focus:border-brand-accent"
+                className={cn(
+                  'w-full px-3 py-2 rounded-lg bg-brand-bg border border-brand-border text-white text-sm focus:outline-none focus:border-brand-accent',
+                  editMode === 'edit' && 'opacity-50 cursor-not-allowed'
+                )}
               />
             </div>
             <div>
@@ -578,62 +614,92 @@ function EventMasterPanel({
               </select>
             </div>
           </div>
-          <button
-            onClick={handleAdd}
-            disabled={submitting || !form.event_id.trim() || !form.display_name.trim()}
-            className="px-4 py-2 rounded-lg bg-brand-accent text-white text-sm font-medium hover:bg-brand-accent/80 disabled:opacity-50 transition-all"
-          >
-            {submitting ? '저장 중...' : '저장'}
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={handleSave}
+              disabled={submitting || !form.event_id.trim() || !form.display_name.trim()}
+              className="px-4 py-2 rounded-lg bg-brand-accent text-white text-sm font-medium hover:bg-brand-accent/80 disabled:opacity-50 transition-all"
+            >
+              {submitting ? '저장 중...' : editMode === 'edit' ? '수정 저장' : '추가'}
+            </button>
+            <button onClick={closeForm} className="px-4 py-2 rounded-lg border border-brand-border text-gray-400 text-sm hover:text-white transition-colors">
+              취소
+            </button>
+          </div>
         </div>
       )}
 
-      {/* 이벤트 목록 */}
+      {/* 목록 */}
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-brand-border">
-              <th className="px-5 py-2 text-left text-gray-400 font-medium text-xs">event_id</th>
-              <th className="px-5 py-2 text-left text-gray-400 font-medium text-xs">표시명</th>
-              <th className="px-5 py-2 text-left text-gray-400 font-medium text-xs">연도</th>
-              <th className="px-5 py-2 text-left text-gray-400 font-medium text-xs">구분</th>
-              <th className="px-5 py-2 w-12"></th>
+              <th className="px-2 py-2 w-14"></th>
+              <th className="px-4 py-2 text-left text-gray-400 font-medium text-xs">event_id</th>
+              <th className="px-4 py-2 text-left text-gray-400 font-medium text-xs">표시명</th>
+              <th className="px-4 py-2 text-left text-gray-400 font-medium text-xs">연도</th>
+              <th className="px-4 py-2 text-left text-gray-400 font-medium text-xs">구분</th>
+              <th className="px-4 py-2 w-20"></th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={5} className="px-5 py-6 text-center text-gray-500 text-xs">불러오는 중...</td></tr>
+              <tr><td colSpan={6} className="px-5 py-6 text-center text-gray-500 text-xs">불러오는 중...</td></tr>
             ) : entries.length === 0 ? (
-              <tr><td colSpan={5} className="px-5 py-6 text-center text-gray-500 text-xs">등록된 이벤트가 없습니다</td></tr>
+              <tr><td colSpan={6} className="px-5 py-6 text-center text-gray-500 text-xs">등록된 이벤트가 없습니다</td></tr>
             ) : (
-              years.flatMap(year =>
-                entries
-                  .filter(e => e.year === year)
-                  .map(e => (
-                    <tr key={e.event_id} className="border-b border-brand-border last:border-0 group hover:bg-white/5">
-                      <td className="px-5 py-2 font-mono text-brand-accent text-xs">{e.event_id}</td>
-                      <td className="px-5 py-2 text-gray-300 text-xs">{e.display_name}</td>
-                      <td className="px-5 py-2 text-gray-500 text-xs">{e.year}</td>
-                      <td className="px-5 py-2 text-xs">
-                        {e.is_global
-                          ? <span className="text-green-400">글로벌</span>
-                          : <span className="text-gray-500">지역</span>}
-                      </td>
-                      <td className="px-5 py-2 text-right">
+              years.flatMap(year => {
+                const sorted = entries.filter(e => e.year === year).sort((a, b) => a.sort_order - b.sort_order)
+                return sorted.map((e, idx) => (
+                  <tr key={e.event_id} className="border-b border-brand-border last:border-0 group hover:bg-white/5">
+                    {/* 순서 버튼 */}
+                    <td className="px-2 py-2">
+                      <div className="flex flex-col items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => handleReorder(e, 'up')}
+                          disabled={reordering || idx === 0}
+                          className="text-gray-500 hover:text-white disabled:opacity-20 disabled:cursor-not-allowed text-xs leading-none px-1"
+                          title="위로"
+                        >▲</button>
+                        <button
+                          onClick={() => handleReorder(e, 'down')}
+                          disabled={reordering || idx === sorted.length - 1}
+                          className="text-gray-500 hover:text-white disabled:opacity-20 disabled:cursor-not-allowed text-xs leading-none px-1"
+                          title="아래로"
+                        >▼</button>
+                      </div>
+                    </td>
+                    <td className="px-4 py-2 font-mono text-brand-accent text-xs">{e.event_id}</td>
+                    <td className="px-4 py-2 text-gray-300 text-xs">{e.display_name}</td>
+                    <td className="px-4 py-2 text-gray-500 text-xs">{e.year}</td>
+                    <td className="px-4 py-2 text-xs">
+                      {e.is_global
+                        ? <span className="text-green-400">글로벌</span>
+                        : <span className="text-gray-500">지역</span>}
+                    </td>
+                    <td className="px-4 py-2">
+                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => openEdit(e)}
+                          className="text-xs text-gray-400 hover:text-white transition-colors"
+                        >
+                          수정
+                        </button>
                         <button
                           onClick={async () => {
-                            if (!confirm(`"${e.event_id}" 을 삭제하시겠습니까?\n삭제 후 이 event_id로 업로드가 불가합니다.`)) return
+                            if (!confirm(`"${e.event_id}" 를 삭제하시겠습니까?\n같은 event_id로 다시 추가할 수 있습니다.`)) return
                             const { error } = await onDelete(e.event_id)
                             if (error) alert(`삭제 오류: ${error}`)
                           }}
-                          className="text-xs text-gray-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                          className="text-xs text-gray-600 hover:text-red-400 transition-colors"
                         >
                           삭제
                         </button>
-                      </td>
-                    </tr>
-                  ))
-              )
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              })
             )}
           </tbody>
         </table>
@@ -744,7 +810,7 @@ export default function DataUploadPage() {
   const [activeTab, setActiveTab] = useState<UploadTab>('viewership')
   const [reanalyzeKey, setReanalyzeKey] = useState(0)
 
-  const { entries, loading, addEntry, removeEntry } = useEventMaster()
+  const { entries, loading, addEntry, removeEntry, reorderEntries } = useEventMaster()
 
   if (!unlocked) return <PasswordGate onUnlock={() => setUnlocked(true)} />
 
@@ -768,6 +834,7 @@ export default function DataUploadPage() {
           loading={loading}
           onAdd={addEntry}
           onDelete={removeEntry}
+          onReorder={reorderEntries}
         />
 
         {/* 탭 */}

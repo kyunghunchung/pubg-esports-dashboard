@@ -34,5 +34,16 @@ export function useEventMaster() {
     return { error }
   }
 
-  return { entries, loading, reload, addEntry, removeEntry }
+  /** 같은 연도 내 두 항목의 sort_order 를 교환합니다 */
+  async function reorderEntries(a: EventMasterEntry, b: EventMasterEntry): Promise<{ error: string | null }> {
+    const [ra, rb] = await Promise.all([
+      upsertEventMasterEntry({ ...a, sort_order: b.sort_order }),
+      upsertEventMasterEntry({ ...b, sort_order: a.sort_order }),
+    ])
+    const error = ra.error ?? rb.error ?? null
+    if (!error) await reload()
+    return { error }
+  }
+
+  return { entries, loading, reload, addEntry, removeEntry, reorderEntries }
 }
