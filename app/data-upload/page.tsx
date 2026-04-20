@@ -504,7 +504,9 @@ function EventMasterPanel({
   const [editMode, setEditMode] = useState<'add' | 'edit'>('add')
   const [showForm, setShowForm] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [reordering, setReordering] = useState(false)
+  const [saving, setSaving]     = useState(false)
+  const [dragId, setDragId]     = useState<string | null>(null)
+  const [dragOverId, setDragOverId] = useState<string | null>(null)
 
   const years = Array.from(new Set(entries.map(e => e.year))).sort((a, b) => b - a)
 
@@ -535,27 +537,24 @@ function EventMasterPanel({
     setSubmitting(false)
   }
 
-  async function handleReorder(entry: EventMasterEntry, dir: 'up' | 'down') {
-    // 1. 해당 연도 항목을 현재 sort_order 기준으로 정렬
+  async function handleDrop(targetId: string, year: number) {
+    if (!dragId || dragId === targetId) return
     const sorted = entries
-      .filter(e => e.year === entry.year)
+      .filter(e => e.year === year)
       .sort((a, b) => a.sort_order - b.sort_order)
-    const idx = sorted.findIndex(e => e.event_id === entry.event_id)
-    const newIdx = dir === 'up' ? idx - 1 : idx + 1
-    if (newIdx < 0 || newIdx >= sorted.length) return
+    const fromIdx = sorted.findIndex(e => e.event_id === dragId)
+    const toIdx   = sorted.findIndex(e => e.event_id === targetId)
+    if (fromIdx === -1 || toIdx === -1) return
 
-    // 2. 배열에서 항목 이동
     const reordered = [...sorted]
-    const [moved] = reordered.splice(idx, 1)
-    reordered.splice(newIdx, 0, moved)
-
-    // 3. sort_order 를 1, 2, 3... 으로 재할당 (충돌·중복 제거)
+    const [moved] = reordered.splice(fromIdx, 1)
+    reordered.splice(toIdx, 0, moved)
     const normalized = reordered.map((e, i) => ({ ...e, sort_order: i + 1 }))
 
-    setReordering(true)
+    setSaving(true)
     const { error } = await onReorder(normalized)
     if (error) alert(`순서 변경 오류: ${error}`)
-    setReordering(false)
+    setSaving(false)
   }
 
   return (
@@ -646,7 +645,7 @@ function EventMasterPanel({
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-brand-border">
-              <th className="px-2 py-2 w-14"></th>
+              <th className="px-2 py-2 w-8"></th>
               <th className="px-4 py-2 text-left text-gray-400 font-medium text-xs">event_id</th>
               <th className="px-4 py-2 text-left text-gray-400 font-medium text-xs">표시명</th>
               <th className="px-4 py-2 text-left text-gray-400 font-medium text-xs">연도</th>
@@ -662,24 +661,25 @@ function EventMasterPanel({
             ) : (
               years.flatMap(year => {
                 const sorted = entries.filter(e => e.year === year).sort((a, b) => a.sort_order - b.sort_order)
-                return sorted.map((e, idx) => (
-                  <tr key={e.event_id} className="border-b border-brand-border last:border-0 group hover:bg-white/5">
-                    {/* 순서 버튼 */}
-                    <td className="px-2 py-2">
-                      <div className="flex flex-col items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={() => handleReorder(e, 'up')}
-                          disabled={reordering || idx === 0}
-                          className="text-gray-500 hover:text-white disabled:opacity-20 disabled:cursor-not-allowed text-xs leading-none px-1"
-                          title="위로"
-                        >▲</button>
-                        <button
-                          onClick={() => handleReorder(e, 'down')}
-                          disabled={reordering || idx === sorted.length - 1}
-                          className="text-gray-500 hover:text-white disabled:opacity-20 disabled:cursor-not-allowed text-xs leading-none px-1"
-                          title="아래로"
-                        >▼</button>
-                      </div>
+                return sorted.map(e => (
+                  <tr
+                    key={e.event_id}
+                    draggable={!saving}
+                    onDragStart={() => setDragId(e.event_id)}
+                    onDragOver={ev => { ev.preventDefault(); if (dragId && dragId !== e.event_id) setDragOverId(e.event_id) }}
+                    onDragLeave={() => setDragOverId(null)}
+                    onDrop={async ev => { ev.preventDefault(); setDragOverId(null); await handleDrop(e.event_id, year); setDragId(null) }}
+                    onDragEnd={() => { setDragId(null); setDragOverId(null) }}
+                    className={cn(
+                      'border-b border-brand-border last:border-0 group transition-all select-none',
+                      saving ? 'opacity-50' : 'cursor-grab active:cursor-grabbing',
+                      dragId === e.event_id ? 'opacity-30' : 'hover:bg-white/5',
+                      dragOverId === e.event_id && dragId !== e.event_id && 'border-t-2 border-t-brand-accent bg-brand-accent/5',
+                    )}
+                  >
+                    {/* 드래그 핸들 */}
+                    <td className="px-2 py-2 text-center text-gray-600 group-hover:text-gray-400 transition-colors text-base leading-none">
+                      ⠿
                     </td>
                     <td className="px-4 py-2 font-mono text-brand-accent text-xs">{e.event_id}</td>
                     <td className="px-4 py-2 text-gray-300 text-xs">{e.display_name}</td>
