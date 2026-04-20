@@ -19,8 +19,6 @@ const ContentsTrendChart = dynamic(
   { ssr: false },
 )
 
-const CONTENT_TYPE_1_OPTIONS = ['숏폼', '롱폼', '포스트']
-const CONTENT_TYPE_2_OPTIONS = ['하이라이트', '프로모션', '하이핑']
 
 function FilterSelect({
   label,
@@ -132,6 +130,16 @@ export default function ContentsPage() {
     return Array.from(new Set(data.social.map(s => s.region).filter(Boolean))) as string[]
   }, [data])
 
+  const type1Options = useMemo(() => {
+    if (!data) return []
+    return Array.from(new Set(data.social.map(s => s.content_type_1).filter(Boolean))) as string[]
+  }, [data])
+
+  const type2Options = useMemo(() => {
+    if (!data) return []
+    return Array.from(new Set(data.social.map(s => s.content_type_2).filter(Boolean))) as string[]
+  }, [data])
+
   // 트렌드 데이터 (필터 적용)
   const hasDateData = useMemo(() =>
     data ? hasSocialDateData(data, filteredUUIDs) : false,
@@ -218,14 +226,16 @@ export default function ContentsPage() {
               label="콘텐츠 종류 1"
               value={filterType1}
               onChange={setFilterType1}
-              options={CONTENT_TYPE_1_OPTIONS}
+              options={type1Options}
+              placeholder={type1Options.length === 0 ? '데이터 없음' : '전체'}
             />
             {/* 콘텐츠 종류 2 */}
             <FilterSelect
               label="콘텐츠 종류 2"
               value={filterType2}
               onChange={setFilterType2}
-              options={CONTENT_TYPE_2_OPTIONS}
+              options={type2Options}
+              placeholder={type2Options.length === 0 ? '데이터 없음' : '전체'}
             />
           </div>
 

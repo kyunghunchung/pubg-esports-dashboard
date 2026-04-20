@@ -134,19 +134,30 @@ export function getSocialTrend(
   if (filters.content_type_2) rows = rows.filter(s => s.content_type_2 === filters.content_type_2)
 
   function periodKey(iso: string): string {
-    const d = new Date(iso)
+    // UTC 날짜 기준으로 파싱 (로컬 시간대 영향 배제)
+    const ymd = iso.slice(0, 10)  // "YYYY-MM-DD"
+    const [y, m, day] = ymd.split('-').map(Number)
     if (period === 'monthly') {
-      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      return `${y}-${String(m).padStart(2, '0')}`
     }
-    // ISO 주차 계산
-    const tmp = new Date(d)
-    tmp.setHours(0, 0, 0, 0)
-    tmp.setDate(tmp.getDate() + 3 - (tmp.getDay() + 6) % 7)
-    const jan4 = new Date(tmp.getFullYear(), 0, 4)
+    // ISO 주차 계산 — UTC 기반 Date 사용
+    const d = new Date(Date.UTC(y, m - 1, day))
+    const dayOfWeek = d.getUTCDay()  // 0=일 ~ 6=토
+    const thursday = new Date(d)
+    thursday.setUTCDate(day + 3 - (dayOfWeek + 6) % 7)  // 같은 주 목요일
+    const isoYear = thursday.getUTCFullYear()
+    const jan4 = new Date(Date.UTC(isoYear, 0, 4))
+    const jan4Day = jan4.getUTCDay()
     const week = 1 + Math.round(
-      ((tmp.getTime() - jan4.getTime()) / 86400000 - 3 + (jan4.getDay() + 6) % 7) / 7
+      ((thursday.getTime() - jan4.getTime()) / 86400000 - 3 + (jan4Day + 6) % 7) / 7
     )
-    return `${tmp.getFullYear()}-W${String(week).padStart(2, '0')}`
+    // 라벨: 주 시작(월)~끝(일) 날짜 표시
+    const mon = new Date(d)
+    mon.setUTCDate(day - (dayOfWeek + 6) % 7)
+    const sun = new Date(mon)
+    sun.setUTCDate(mon.getUTCDate() + 6)
+    const fmt = (dt: Date) => `${dt.getUTCMonth() + 1}/${String(dt.getUTCDate()).padStart(2, '0')}`
+    return `${isoYear}-W${String(week).padStart(2, '0')}|${fmt(mon)}~${fmt(sun)}`
   }
 
   const map = new Map<string, SocialTrendPoint>()

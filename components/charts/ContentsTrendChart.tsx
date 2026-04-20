@@ -45,6 +45,7 @@ export function ContentsTrendChart({ data, metric, period }: Props) {
           tick={{ fill: '#9CA3AF', fontSize: 11 }}
           axisLine={false}
           tickLine={false}
+          tickFormatter={(v: string) => v.includes('|') ? v.split('|')[1] : v}
         />
         <YAxis
           tick={{ fill: '#6B7280', fontSize: 11 }}
@@ -56,6 +57,7 @@ export function ContentsTrendChart({ data, metric, period }: Props) {
         <Tooltip
           contentStyle={{ backgroundColor: '#111827', border: '1px solid #1F2937', borderRadius: 8 }}
           labelStyle={{ color: '#E5E7EB', fontSize: 12, marginBottom: 4 }}
+          labelFormatter={(label) => typeof label === 'string' && label.includes('|') ? label.split('|')[1] : label}
           formatter={(value) => [formatNumber(Number(value ?? 0)), METRIC_LABEL[metric]]}
         />
         <Bar
