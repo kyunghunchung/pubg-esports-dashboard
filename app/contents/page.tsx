@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { useDashboardData } from '@/lib/hooks/useDashboardData'
+import { useInitEventMaster } from '@/lib/hooks/useInitEventMaster'
 import {
   getAllYears,
   getEventsByYear,
@@ -61,6 +62,7 @@ function FilterSelect({
 
 export default function ContentsPage() {
   const { data, loading, fetchError, refetch } = useDashboardData()
+  const masterEntries = useInitEventMaster()  // Supabase 마스터 로드 + 재렌더 트리거
 
   const [filterYear,     setFilterYear]     = useState('')
   const [filterEvent,    setFilterEvent]    = useState('')  // EVENT_MASTER event_id
@@ -73,15 +75,15 @@ export default function ContentsPage() {
   const [trendPeriod,  setTrendPeriod]  = useState<'monthly' | 'weekly'>('monthly')
   const [trendMetric,  setTrendMetric]  = useState<'impressions' | 'content_count' | 'engagements' | 'video_views'>('impressions')
 
-  // 연도 옵션 — EVENT_MASTER 기준
-  const yearOptions = getAllYears()
+  // 연도 옵션 — 마스터 로드 후 재계산
+  const yearOptions = useMemo(() => getAllYears(), [masterEntries])
 
-  // 대회 옵션 — 선택 연도의 EVENT_MASTER 항목
+  // 대회 옵션 — 선택 연도의 EVENT_MASTER 항목 (마스터 로드 후 재계산)
   const eventOptions = useMemo(() =>
     filterYear
       ? getEventsByYear(Number(filterYear))
       : [],
-    [filterYear]
+    [filterYear, masterEntries]
   )
 
   // event_id → Supabase UUID

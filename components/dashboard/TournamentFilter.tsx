@@ -6,6 +6,7 @@ import {
   getGlobalEventsByYear,
   getDisplayName,
 } from '@/lib/config/event-master'
+import { useInitEventMaster } from '@/lib/hooks/useInitEventMaster'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export function TournamentFilter({ selectedIds, onChange }: Props) {
+  useInitEventMaster()  // 마스터 로드 후 이 컴포넌트를 재렌더링
   const years = getAllYears()
 
   // 현재 선택된 연도 — selectedIds 첫 번째 항목 기반

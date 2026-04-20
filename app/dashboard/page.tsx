@@ -12,6 +12,7 @@ import {
   hasSocialDateData,
 } from '@/lib/store'
 import { useDashboardData } from '@/lib/hooks/useDashboardData'
+import { useInitEventMaster } from '@/lib/hooks/useInitEventMaster'
 import {
   getAllYears,
   getGlobalEventsByYear,
@@ -37,6 +38,7 @@ const ContentsTrendChart = dynamic(
 
 export default function DashboardPage() {
   const { data, loading, fetchError, refetch } = useDashboardData()
+  useInitEventMaster()  // Supabase event_master를 런타임 마스터로 세팅
 
   // selectedIds — localStorage에 유지해서 네비게이션 후에도 선택 유지
   const [selectedIds, setSelectedIds] = useState<string[]>(() => {
