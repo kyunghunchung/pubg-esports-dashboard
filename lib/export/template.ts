@@ -42,13 +42,13 @@ export function generateViewershipTemplate(): Uint8Array {
 export function generateContentsTemplate(): Uint8Array {
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, makeSheet(
-    ['event_id', 'Platform', 'Region / Language', 'Content Type 1', 'Content Type 2',
+    ['event_id', 'Date', 'Platform', 'Region / Language', 'Content Type 1', 'Content Type 2',
      'Number of Contents', 'Impression', 'Views', 'Likes', 'Comments'],
     [
-      ['PNC_2025', 'Instagram', 'KR', '숏폼',  '하이라이트', 12,  2800000, 740000,  45000, 3200],
-      ['PNC_2025', 'YouTube',   'EN', '롱폼',  '하이라이트', 5,   1200000, 980000,  22000, 1800],
-      ['PNC_2025', 'TikTok',    'KR', '숏폼',  '프로모션',   20,  4500000, 3200000, 88000, 5500],
-      ['PNC_2025', 'X',         'EN', '포스트', '하이핑',     30,   980000,       0, 12000,  900],
+      ['PNC_2025', '2025-06-20', 'Instagram', 'KR', '숏폼',  '하이라이트', 12,  2800000, 740000,  45000, 3200],
+      ['PNC_2025', '2025-06-21', 'YouTube',   'EN', '롱폼',  '하이라이트', 5,   1200000, 980000,  22000, 1800],
+      ['PNC_2025', '2025-06-21', 'TikTok',    'KR', '숏폼',  '프로모션',   20,  4500000, 3200000, 88000, 5500],
+      ['PNC_2025', '2025-06-22', 'X',         'EN', '포스트', '하이핑',     30,   980000,       0, 12000,  900],
     ],
   ), 'Contents')
   XLSX.utils.book_append_sheet(wb, makeEventIdSheet(), '유효 event_id 목록')
