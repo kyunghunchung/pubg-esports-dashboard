@@ -59,15 +59,28 @@ export default function DashboardPage() {
   useEffect(() => {
     const years = getAllYears()
     if (!years.length) return
-    const latestYear = years[0]
-    const globals = getGlobalEventsByYear(latestYear)
     const allMasterIds = getAllYears().flatMap(y => getGlobalEventsByYear(y).map(e => e.event_id))
     const stillValid = selectedIds.length > 0 && selectedIds.every(id => allMasterIds.includes(id))
     if (!stillValid) {
-      const defaultIds = globals.length > 0 ? [globals[0].event_id] : []
-      updateSelectedIds(defaultIds)
+      const latestYear = years[0]
+      const globals = getGlobalEventsByYear(latestYear)
+      updateSelectedIds(globals.length > 0 ? [globals[0].event_id] : [])
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // data 로드 후 선택된 이벤트가 실제 업로드 데이터에 없으면 첫 번째 유효 이벤트로 리셋
+  useEffect(() => {
+    if (!data?.events.length || !selectedIds.length) return
+    const validNames = new Set(data.events.map(e => e.name))
+    const hasMatch = selectedIds.some(id => validNames.has(id))
+    if (!hasMatch) {
+      const years = getAllYears()
+      const latestYear = years[0]
+      const globals = getGlobalEventsByYear(latestYear)
+      const firstValid = globals.find(e => validNames.has(e.event_id))
+      updateSelectedIds(firstValid ? [firstValid.event_id] : [data.events[0].name])
+    }
+  }, [data]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Hooks (early return 이전에 모두 선언) ──
   const selectedUUIDs = useMemo(
@@ -213,8 +226,8 @@ export default function DashboardPage() {
             Contents
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <KpiCard label="Impression"         value={content.impressions}   unit="회" />
             <KpiCard label="Number of Contents" value={content.content_count} unit="건" />
+            <KpiCard label="Impression"         value={content.impressions}   unit="회" />
           </div>
 
           {/* 기간별 트렌드 — Date 데이터 있을 때만 */}
@@ -244,10 +257,10 @@ export default function DashboardPage() {
                     onChange={e => setTrendMetric(e.target.value as typeof trendMetric)}
                     className="bg-brand-bg border border-brand-border rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-brand-accent"
                   >
-                    <option value="impressions">노출</option>
-                    <option value="content_count">콘텐츠 수</option>
+                    <option value="impressions">노출수</option>
+                    <option value="content_count">Number of Contents</option>
+                    <option value="video_views">조회수</option>
                     <option value="engagements">Engagement</option>
-                    <option value="video_views">조회 수</option>
                   </select>
                 </div>
               </div>

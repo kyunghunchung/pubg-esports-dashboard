@@ -252,9 +252,9 @@ export default function ContentsPage() {
         <section className="space-y-3">
           <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-widest">Contents KPI</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <KpiCard label="콘텐츠 수" value={kpi.content_count} unit="건" />
-            <KpiCard label="조회 수"   value={kpi.video_views}   unit="회" />
-            <KpiCard label="Engagement" value={kpi.engagements}  unit="회" />
+            <KpiCard label="Number of Contents" value={kpi.content_count} unit="건" />
+            <KpiCard label="Views"              value={kpi.video_views}   unit="회" />
+            <KpiCard label="Engagement"         value={kpi.engagements}   unit="회" />
           </div>
         </section>
 
@@ -290,10 +290,10 @@ export default function ContentsPage() {
                   onChange={e => setTrendMetric(e.target.value as typeof trendMetric)}
                   className="bg-brand-bg border border-brand-border rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-brand-accent"
                 >
-                  <option value="impressions">노출</option>
-                  <option value="content_count">콘텐츠 수</option>
+                  <option value="impressions">노출수</option>
+                  <option value="content_count">Number of Contents</option>
+                  <option value="video_views">조회수</option>
                   <option value="engagements">Engagement</option>
-                  <option value="video_views">조회 수</option>
                 </select>
               </div>
             </div>
