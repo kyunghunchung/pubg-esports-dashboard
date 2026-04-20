@@ -10,6 +10,7 @@ interface Props {
   label: string
   sublabel?: string   // 카드 상단 보조 설명
   caption?: string    // 카드 하단 주석 (예: ※ 플랫폼별 PCCV 합산)
+  tooltip?: string    // ⓘ 아이콘 hover 시 표시되는 설명
   value: number
   unit?: string
   target?: number
@@ -25,7 +26,7 @@ const BADGE_STYLE: Record<BadgeProp['color'], string> = {
   red:    'text-red-400 bg-red-400/10 border-red-400/20',
 }
 
-export function KpiCard({ label, sublabel, caption, value, unit, target, yoy, disabled, badge, className }: Props) {
+export function KpiCard({ label, sublabel, caption, tooltip, value, unit, target, yoy, disabled, badge, className }: Props) {
   const hasYoy = yoy !== undefined && !disabled
   const yoyPositive = hasYoy && yoy! >= 0
 
@@ -36,7 +37,18 @@ export function KpiCard({ label, sublabel, caption, value, unit, target, yoy, di
       className,
     )}>
       <div>
-        <p className="text-sm text-gray-400 font-medium">{label}</p>
+        <div className="flex items-center gap-1.5">
+          <p className="text-sm text-gray-400 font-medium">{label}</p>
+          {tooltip && (
+            <div className="relative group/tip">
+              <span className="text-xs text-gray-600 hover:text-gray-400 cursor-default select-none leading-none">ⓘ</span>
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-56 px-2.5 py-1.5 rounded-lg bg-gray-800 border border-gray-700 text-xs text-gray-200 leading-relaxed whitespace-pre-wrap pointer-events-none opacity-0 group-hover/tip:opacity-100 transition-opacity z-50 shadow-lg">
+                {tooltip}
+                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800" />
+              </div>
+            </div>
+          )}
+        </div>
         {sublabel && <p className="text-xs text-gray-600 mt-0.5">{sublabel}</p>}
       </div>
 

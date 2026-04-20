@@ -165,6 +165,7 @@ export default function DashboardPage() {
             <KpiCard
               label="Stability Ratio"
               sublabel="ACCV ÷ PCCV"
+              tooltip="끝까지 남은 시청자 비율 — 코어팬 지표"
               value={stabilityRatio ?? 0}
               unit="%"
               disabled={!isSingleEvent}
