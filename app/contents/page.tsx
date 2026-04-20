@@ -60,7 +60,7 @@ function FilterSelect({
 }
 
 export default function ContentsPage() {
-  const { data, loading } = useDashboardData()
+  const { data, loading, fetchError, refetch } = useDashboardData()
 
   const [filterYear,     setFilterYear]     = useState('')
   const [filterEvent,    setFilterEvent]    = useState('')  // EVENT_MASTER event_id
@@ -168,8 +168,21 @@ export default function ContentsPage() {
           <p className="text-sm text-gray-400 mt-1">소셜 채널별 콘텐츠 성과 분석</p>
         </div>
 
+        {/* Supabase 연결 오류 안내 */}
+        {fetchError && !data?.events.length && (
+          <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-xl p-4 flex items-center justify-between">
+            <p className="text-sm text-yellow-300">서버 연결에 실패했습니다. 잠시 후 다시 시도해주세요.</p>
+            <button
+              onClick={refetch}
+              className="shrink-0 px-3 py-1.5 rounded-lg border border-yellow-500/40 text-yellow-300 text-xs font-medium hover:bg-yellow-500/10 transition-all"
+            >
+              다시 불러오기
+            </button>
+          </div>
+        )}
+
         {/* 데이터 없음 안내 */}
-        {!data?.events.length && (
+        {!fetchError && !data?.events.length && (
           <div className="bg-brand-surface border border-brand-border rounded-xl p-6 flex items-center justify-between">
             <p className="text-sm text-gray-400">업로드된 데이터가 없습니다.</p>
             <Link href="/data-upload" className="px-4 py-2 rounded-lg bg-brand-accent text-white text-sm font-medium hover:bg-brand-accent/80">
@@ -290,9 +303,9 @@ export default function ContentsPage() {
                   onChange={e => setTrendMetric(e.target.value as typeof trendMetric)}
                   className="bg-brand-bg border border-brand-border rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-brand-accent"
                 >
-                  <option value="impressions">노출수</option>
                   <option value="content_count">Number of Contents</option>
-                  <option value="video_views">조회수</option>
+                  <option value="impressions">Impression</option>
+                  <option value="video_views">Views</option>
                   <option value="engagements">Engagement</option>
                 </select>
               </div>
