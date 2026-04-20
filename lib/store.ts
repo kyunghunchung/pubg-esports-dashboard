@@ -180,7 +180,7 @@ export function getSocialTrend(
 export function hasSocialDateData(data: DashboardData, eventIds: string[]): boolean {
   const rows = data.social.filter(s => eventIds.includes(s.event_id))
   if (rows.length < 2) return false
-  const dates = new Set(rows.map(s => s.recorded_at.slice(0, 10)))
+  const dates = new Set(rows.map(s => s.recorded_at?.slice(0, 10)).filter(Boolean))
   return dates.size > 1  // 날짜가 2개 이상 다르면 날짜 데이터 있음
 }
 

@@ -81,8 +81,10 @@ export default function DashboardPage() {
   const content = data ? getContentAggregated(data, selectedUUIDs) : { impressions: 0, content_count: 0 }
 
   // ── Contents 트렌드 ──
-  const hasDateData = data ? hasSocialDateData(data, selectedUUIDs) : false
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const hasDateData = useMemo(
+    () => data ? hasSocialDateData(data, selectedUUIDs) : false,
+    [data, selectedUUIDs],
+  )
   const trendData = useMemo(() => {
     if (!data || !hasDateData) return []
     return getSocialTrend(data, selectedUUIDs, trendPeriod)
