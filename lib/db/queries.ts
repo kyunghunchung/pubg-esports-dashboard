@@ -1,8 +1,7 @@
 import { supabase } from './supabase-client'
 import type { DashboardData } from '@/lib/store'
 import type {
-  Event, ViewershipKpi, SocialKpi, BroadcastKpi,
-  CompetitiveKpi, LiveEventKpi, KpiTarget,
+  Event, ViewershipKpi, SocialKpi, CostreamingKpi,
 } from '@/types'
 import type { EventMasterEntry } from '@/lib/config/event-master'
 import { EVENT_MASTER } from '@/lib/config/event-master'
@@ -67,10 +66,7 @@ export async function saveToSupabase(data: DashboardData): Promise<{ error: stri
     await Promise.all([
       supabase.from('viewership_kpis').delete().in('event_id', supabaseEventIds),
       supabase.from('social_kpis').delete().in('event_id', supabaseEventIds),
-      supabase.from('broadcast_kpis').delete().in('event_id', supabaseEventIds),
-      supabase.from('competitive_kpis').delete().in('event_id', supabaseEventIds),
-      supabase.from('live_event_kpis').delete().in('event_id', supabaseEventIds),
-      supabase.from('kpi_targets').delete().in('event_id', supabaseEventIds),
+      supabase.from('costreaming_kpis').delete().in('event_id', supabaseEventIds),
     ])
 
     // 3. KPI 삽입
@@ -111,9 +107,9 @@ export async function saveToSupabase(data: DashboardData): Promise<{ error: stri
       if (error) return { error: `소셜 저장 실패: ${error.message}` }
     }
 
-    if (data.broadcast.length) {
-      const { error } = await supabase.from('broadcast_kpis').insert(
-        data.broadcast.map(b => ({
+    if (data.costreaming.length) {
+      const { error } = await supabase.from('costreaming_kpis').insert(
+        data.costreaming.map(b => ({
           event_id:            toSupabaseId(b.event_id),
           channel_count:       b.channel_count       ?? null,
           co_streamer_count:   b.co_streamer_count   ?? null,
@@ -126,47 +122,7 @@ export async function saveToSupabase(data: DashboardData): Promise<{ error: stri
           recorded_at:         b.recorded_at,
         }))
       )
-      if (error) return { error: `방송 저장 실패: ${error.message}` }
-    }
-
-    if (data.competitive.length) {
-      const { error } = await supabase.from('competitive_kpis').insert(
-        data.competitive.map(c => ({
-          event_id:       toSupabaseId(c.event_id),
-          team_count:     c.team_count     ?? null,
-          player_count:   c.player_count   ?? null,
-          country_count:  c.country_count  ?? null,
-          prize_pool_usd: c.prize_pool_usd ?? null,
-          recorded_at:    c.recorded_at,
-        }))
-      )
-      if (error) return { error: `경쟁 저장 실패: ${error.message}` }
-    }
-
-    if (data.live_event.length) {
-      const { error } = await supabase.from('live_event_kpis').insert(
-        data.live_event.map(l => ({
-          event_id:          toSupabaseId(l.event_id),
-          total_attendance:  l.total_attendance  ?? null,
-          ticket_sales_rate: l.ticket_sales_rate ?? null,
-          avg_occupancy:     l.avg_occupancy     ?? null,
-          recorded_at:       l.recorded_at,
-        }))
-      )
-      if (error) return { error: `현장 저장 실패: ${error.message}` }
-    }
-
-    if (data.kpi_targets.length) {
-      const { error } = await supabase.from('kpi_targets').insert(
-        data.kpi_targets.map(t => ({
-          event_id:     toSupabaseId(t.event_id),
-          category:     t.category,
-          metric:       t.metric,
-          target_value: t.target_value,
-          unit:         t.unit ?? null,
-        }))
-      )
-      if (error) return { error: `KPI 목표값 저장 실패: ${error.message}` }
+      if (error) return { error: `코스트리밍 저장 실패: ${error.message}` }
     }
 
     return { error: null }
@@ -181,9 +137,9 @@ export async function saveTypedKpisToSupabase(
   events: Event[],
   kpiType: 'viewership' | 'contents' | 'costreaming',
   kpis: {
-    viewership?: ViewershipKpi[]
-    social?:     SocialKpi[]
-    broadcast?:  BroadcastKpi[]
+    viewership?:  ViewershipKpi[]
+    social?:      SocialKpi[]
+    costreaming?: CostreamingKpi[]
   },
 ): Promise<{ error: string | null }> {
   try {
@@ -270,10 +226,10 @@ export async function saveTypedKpisToSupabase(
     }
 
     if (kpiType === 'costreaming') {
-      await supabase.from('broadcast_kpis').delete().in('event_id', uuids)
-      if (kpis.broadcast?.length) {
-        const { error } = await supabase.from('broadcast_kpis').insert(
-          kpis.broadcast.map(b => ({
+      await supabase.from('costreaming_kpis').delete().in('event_id', uuids)
+      if (kpis.costreaming?.length) {
+        const { error } = await supabase.from('costreaming_kpis').insert(
+          kpis.costreaming.map(b => ({
             event_id:            toUUID(b.event_id),
             channel_count:       b.channel_count       ?? null,
             co_streamer_count:   b.co_streamer_count   ?? null,
@@ -286,7 +242,7 @@ export async function saveTypedKpisToSupabase(
             recorded_at:         b.recorded_at,
           }))
         )
-        if (error) return { error: `방송 저장 실패: ${error.message}` }
+        if (error) return { error: `코스트리밍 저장 실패: ${error.message}` }
       }
     }
 
@@ -320,10 +276,7 @@ export async function clearAllSupabaseData(): Promise<{ error: string | null }> 
     const kpiDeletes = await Promise.all([
       supabase.from('viewership_kpis').delete().in('event_id', ids),
       supabase.from('social_kpis').delete().in('event_id', ids),
-      supabase.from('broadcast_kpis').delete().in('event_id', ids),
-      supabase.from('competitive_kpis').delete().in('event_id', ids),
-      supabase.from('live_event_kpis').delete().in('event_id', ids),
-      supabase.from('kpi_targets').delete().in('event_id', ids),
+      supabase.from('costreaming_kpis').delete().in('event_id', ids),
     ])
     for (const res of kpiDeletes) {
       if (res.error) return { error: `KPI 삭제 실패: ${res.error.message}` }
@@ -387,18 +340,12 @@ export async function loadFromSupabase(): Promise<DashboardData | null> {
       { data: events },
       { data: viewership },
       { data: social },
-      { data: broadcast },
-      { data: competitive },
-      { data: live_event },
-      { data: kpi_targets },
+      { data: costreaming },
     ] = await Promise.all([
       supabase.from('events').select('*').order('year', { ascending: false }),
       supabase.from('viewership_kpis').select('*'),
       supabase.from('social_kpis').select('*'),
-      supabase.from('broadcast_kpis').select('*'),
-      supabase.from('competitive_kpis').select('*'),
-      supabase.from('live_event_kpis').select('*'),
-      supabase.from('kpi_targets').select('*'),
+      supabase.from('costreaming_kpis').select('*'),
     ])
 
     if (!events?.length) return null
@@ -407,10 +354,7 @@ export async function loadFromSupabase(): Promise<DashboardData | null> {
       events:      (events      ?? []) as Event[],
       viewership:  (viewership  ?? []) as ViewershipKpi[],
       social:      (social      ?? []) as SocialKpi[],
-      broadcast:   (broadcast   ?? []) as BroadcastKpi[],
-      competitive: (competitive ?? []) as CompetitiveKpi[],
-      live_event:  (live_event  ?? []) as LiveEventKpi[],
-      kpi_targets: (kpi_targets ?? []) as KpiTarget[],
+      costreaming: (costreaming ?? []) as CostreamingKpi[],
       uploadedAt:  new Date().toISOString(),
     }
   } catch {

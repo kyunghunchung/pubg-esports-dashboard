@@ -110,7 +110,7 @@ export default function CostreamingPage() {
 
   const regionOptions = useMemo(() => {
     if (!data) return []
-    return Array.from(new Set(data.broadcast.map(b => b.region).filter(Boolean))) as string[]
+    return Array.from(new Set(data.costreaming.map(b => b.region).filter(Boolean))) as string[]
   }, [data])
 
   const coKpi = useMemo(() => {
@@ -234,7 +234,7 @@ export default function CostreamingPage() {
         </KpiGroup>
 
         {/* 이벤트별 상세 테이블 */}
-        {data && data.broadcast.filter(b => filteredUUIDs.includes(b.event_id)).length > 0 && (
+        {data && data.costreaming.filter(b => filteredUUIDs.includes(b.event_id)).length > 0 && (
           <section className="bg-brand-surface border border-brand-border rounded-xl overflow-hidden">
             <div className="px-5 py-4 border-b border-brand-border">
               <h2 className="text-sm font-semibold text-gray-300">이벤트별 상세</h2>
@@ -250,7 +250,7 @@ export default function CostreamingPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.broadcast
+                  {data.costreaming
                     .filter(b => {
                       if (!filteredUUIDs.includes(b.event_id)) return false
                       if (filterRegion && b.region !== filterRegion) return false

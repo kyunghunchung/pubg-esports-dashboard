@@ -4,7 +4,7 @@
  *     업로드 시 event_id 를 EVENT_MASTER 에서 검증 (최우선 검사)
  */
 import * as XLSX from 'xlsx'
-import type { Event, ViewershipKpi, SocialKpi, BroadcastKpi } from '@/types'
+import type { Event, ViewershipKpi, SocialKpi, CostreamingKpi } from '@/types'
 import { guessEventType } from '@/lib/config/constants'
 import {
   EVENT_MASTER,
@@ -63,12 +63,12 @@ function preValidateEventIds(rows: Record<string, unknown>[]): { row: number; me
 }
 
 export interface TypedParseResult {
-  events:      Event[]
-  viewership?: ViewershipKpi[]
-  social?:     SocialKpi[]
-  broadcast?:  BroadcastKpi[]
-  errors:      { row: number; message: string }[]
-  rowCount:    number
+  events:       Event[]
+  viewership?:  ViewershipKpi[]
+  social?:      SocialKpi[]
+  costreaming?: CostreamingKpi[]
+  errors:       { row: number; message: string }[]
+  rowCount:     number
 }
 
 // ── Viewership 파서 ─────────────────────────────────────────────
@@ -271,7 +271,7 @@ export function parseCostreamingFile(buffer: ArrayBuffer): TypedParseResult {
     agg.set(key, cur)
   })
 
-  const broadcast: BroadcastKpi[] = Array.from(agg.values()).map(a => ({
+  const costreaming: CostreamingKpi[] = Array.from(agg.values()).map(a => ({
     id:                  crypto.randomUUID(),
     event_id:            a.master.event_id,
     co_streamer_count:   a.streamer_count,
@@ -282,7 +282,7 @@ export function parseCostreamingFile(buffer: ArrayBuffer): TypedParseResult {
     recorded_at:         new Date().toISOString(),
   }))
 
-  return { events, broadcast, errors, rowCount: broadcast.length }
+  return { events, costreaming, errors, rowCount: costreaming.length }
 }
 
 // ── 병합 헬퍼 (localStorage 로컬 상태용) ───────────────────────

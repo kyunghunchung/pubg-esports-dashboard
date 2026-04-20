@@ -1,9 +1,9 @@
 import * as XLSX from 'xlsx'
-import type { Event, ViewershipKpi, SocialKpi, KpiTarget } from '@/types'
+import type { Event, ViewershipKpi, SocialKpi } from '@/types'
 import type { DashboardData } from '@/lib/store'
 import { guessEventType, normalizeSocialPlatform } from '@/lib/config/constants'
 
-export type ParsedSheet = 'viewership' | 'social' | 'broadcast' | 'competitive' | 'live_event' | 'kpi_targets'
+export type ParsedSheet = 'viewership' | 'social' | 'costreaming'
 
 export interface ParseError { sheet: string; row: number; message: string }
 
@@ -13,6 +13,7 @@ export interface ParseResult {
   summary: Record<ParsedSheet | 'events', number>
   format?: 'template' | 'legacy'
 }
+
 
 // ── 유틸 ────────────────────────────────────────────────────
 
@@ -39,7 +40,7 @@ function parseLegacyFile(wb: XLSX.WorkBook): ParseResult {
   const events: Event[]          = []
   const viewership: ViewershipKpi[] = []
   const errors: ParseError[]     = []
-  const summary = { events:0, viewership:0, social:0, broadcast:0, competitive:0, live_event:0, kpi_targets:0 }
+  const summary = { events:0, viewership:0, social:0, costreaming:0 }
   const nowYear = new Date().getFullYear()
 
   function upsertEvent(name: string, year: number, region?: string) {
@@ -96,7 +97,7 @@ function parseLegacyFile(wb: XLSX.WorkBook): ParseResult {
   }
 
   return {
-    data: { events, viewership, social:[], broadcast:[], competitive:[], live_event:[], kpi_targets:[], uploadedAt: new Date().toISOString() },
+    data: { events, viewership, social:[], costreaming:[], uploadedAt: new Date().toISOString() },
     errors, summary, format: 'legacy',
   }
 }
@@ -106,7 +107,7 @@ function parseLegacyFile(wb: XLSX.WorkBook): ParseResult {
 // ─────────────────────────────────────────────────────────────
 function parseTemplateFile(wb: XLSX.WorkBook): ParseResult {
   const errors: ParseError[] = []
-  const summary = { events:0, viewership:0, social:0, broadcast:0, competitive:0, live_event:0, kpi_targets:0 }
+  const summary = { events:0, viewership:0, social:0, costreaming:0 }
   const nowYear = new Date().getFullYear()
   const events: Event[] = []
 
@@ -213,7 +214,7 @@ function parseTemplateFile(wb: XLSX.WorkBook): ParseResult {
   }
 
   return {
-    data: { events, viewership, social, broadcast:[], competitive:[], live_event:[], kpi_targets:[], uploadedAt: new Date().toISOString() },
+    data: { events, viewership, social, costreaming:[], uploadedAt: new Date().toISOString() },
     errors, summary, format: 'template',
   }
 }

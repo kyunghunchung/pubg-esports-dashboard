@@ -1,13 +1,10 @@
-import type { Event, ViewershipKpi, SocialKpi, BroadcastKpi, CompetitiveKpi, LiveEventKpi, KpiTarget } from '@/types'
+import type { Event, ViewershipKpi, SocialKpi, CostreamingKpi } from '@/types'
 
 export interface DashboardData {
   events:      Event[]
   viewership:  ViewershipKpi[]
   social:      SocialKpi[]
-  broadcast:   BroadcastKpi[]
-  competitive: CompetitiveKpi[]
-  live_event:  LiveEventKpi[]
-  kpi_targets: KpiTarget[]
+  costreaming: CostreamingKpi[]
   uploadedAt:  string
 }
 
@@ -77,10 +74,6 @@ export function getSocialByPlatform(data: DashboardData, eventId: string): Socia
   return data.social.filter(s => s.event_id === eventId)
 }
 
-export function getKpiTargets(data: DashboardData, eventId: string): KpiTarget[] {
-  return data.kpi_targets.filter(t => t.event_id === eventId)
-}
-
 /** 복수 이벤트에 걸친 콘텐츠 KPI 집계 (노출 합산, 콘텐츠 발행 수 합산) */
 export function getContentAggregated(data: DashboardData, eventIds: string[]) {
   const rows = data.social.filter(s => eventIds.includes(s.event_id))
@@ -116,7 +109,7 @@ export function getSocialAggregatedByPlatform(data: DashboardData, eventIds: str
 
 /** 코스트리밍 KPI (복수 이벤트, 선택적 지역 필터) */
 export function getCostreamingAggregated(data: DashboardData, eventIds: string[], region?: string) {
-  let rows = data.broadcast.filter(b => eventIds.includes(b.event_id))
+  let rows = data.costreaming.filter(b => eventIds.includes(b.event_id))
   if (region) rows = rows.filter(b => b.region === region)
   return {
     streamer_count:  rows.reduce((sum, r) => sum + (r.co_streamer_count ?? 0), 0),

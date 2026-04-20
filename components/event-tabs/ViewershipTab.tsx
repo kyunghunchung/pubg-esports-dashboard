@@ -1,20 +1,15 @@
-import { AchievementBanner } from '@/components/kpi/AchievementBanner'
 import { CcvLineChart } from '@/components/charts/CcvLineChart'
 import { PlatformDonut } from '@/components/charts/PlatformDonut'
 import { formatNumber } from '@/lib/utils'
-import type { ViewershipKpi, KpiTarget } from '@/types'
+import type { ViewershipKpi } from '@/types'
 
 interface Props {
   viewership: ViewershipKpi[]
-  targets: KpiTarget[]
 }
 
-export function ViewershipTab({ viewership, targets }: Props) {
+export function ViewershipTab({ viewership }: Props) {
   const total = viewership.find((v) => v.platform === 'total')
   const platforms = viewership.filter((v) => v.platform !== 'total')
-
-  const getTarget = (metric: string) =>
-    targets.find((t) => t.category === 'viewership' && t.metric === metric)?.target_value ?? 0
 
   // CCV 차트 데이터
   const ccvChartData = platforms.map((v) => ({
@@ -39,16 +34,6 @@ export function ViewershipTab({ viewership, targets }: Props) {
 
   return (
     <div className="space-y-6">
-      {/* 목표 달성 배너 */}
-      {getTarget('peak_ccv') > 0 && (
-        <AchievementBanner
-          metric="Peak CCV"
-          target={getTarget('peak_ccv')}
-          actual={total?.peak_ccv ?? 0}
-          unit="명"
-        />
-      )}
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* KPI 요약 테이블 */}
         <div className="bg-brand-surface border border-brand-border rounded-xl p-5 space-y-3">

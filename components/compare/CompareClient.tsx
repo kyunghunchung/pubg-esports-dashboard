@@ -8,13 +8,12 @@ import {
 } from 'recharts'
 import { cn, formatNumber, formatPercent } from '@/lib/utils'
 import { calcAchievement } from '@/lib/kpi/achievement'
-import type { Event, ViewershipKpi, SocialKpi, KpiTarget } from '@/types'
+import type { Event, ViewershipKpi, SocialKpi } from '@/types'
 
 interface EventData {
   event: Event
   viewership: ViewershipKpi[]
   social: SocialKpi[]
-  targets: KpiTarget[]
 }
 
 interface Props {
@@ -44,8 +43,8 @@ function getActual(data: EventData, metric: string): number {
   return 0
 }
 
-function getTarget(data: EventData, metric: string): number {
-  return data.targets.find((t) => t.metric === metric)?.target_value ?? 0
+function getTarget(_data: EventData, _metric: string): number {
+  return 0
 }
 
 export function CompareClient({ events, allData }: Props) {

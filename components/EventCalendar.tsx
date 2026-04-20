@@ -1,4 +1,3 @@
-import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import type { Event } from '@/types'
 
@@ -50,11 +49,10 @@ export function EventCalendar({ events }: Props) {
             {byYear[year]
               .sort((a, b) => a.start_date.localeCompare(b.start_date))
               .map((ev) => (
-                <Link
+                <div
                   key={ev.id}
-                  href={`/events?id=${ev.id}`}
                   className={cn(
-                    'flex items-center justify-between px-4 py-3 rounded-lg border hover:brightness-125 transition-all',
+                    'flex items-center justify-between px-4 py-3 rounded-lg border',
                     STATUS_STYLE[ev.status]
                   )}
                 >
@@ -73,7 +71,7 @@ export function EventCalendar({ events }: Props) {
                       {STATUS_LABEL[ev.status]}
                     </span>
                   </div>
-                </Link>
+                </div>
               ))}
           </div>
         </div>

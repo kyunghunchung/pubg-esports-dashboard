@@ -1,7 +1,7 @@
 export type EventStatus = 'upcoming' | 'live' | 'completed'
 // 글로벌: PGS | PNC | PGC | EWC | PMI(Players Masters Invitational)  /  지역: Regional
 export type EventType = 'PGS' | 'PNC' | 'PGC' | 'EWC' | 'PMI' | 'ENC' | 'Regional'
-export type KpiCategory = 'viewership' | 'social' | 'broadcast' | 'competitive' | 'live_event'
+export type KpiCategory = 'viewership' | 'social' | 'costreaming'
 // 소셜 플랫폼 (lib/config/constants.ts SOCIAL_PLATFORMS와 동기화)
 export type SocialPlatform = 'x' | 'instagram' | 'facebook' | 'tiktok' | 'youtube'
 // 뷰어십 플랫폼 (lib/config/constants.ts VIEWERSHIP_PLATFORMS와 동기화)
@@ -19,15 +19,6 @@ export interface Event {
   region?: string
   status: EventStatus
   created_at?: string
-}
-
-export interface KpiTarget {
-  id: string
-  event_id: string
-  category: KpiCategory
-  metric: string
-  target_value: number
-  unit?: string
 }
 
 export interface ViewershipKpi {
@@ -57,7 +48,7 @@ export interface SocialKpi {
   recorded_at: string
 }
 
-export interface BroadcastKpi {
+export interface CostreamingKpi {
   id: string
   event_id: string
   channel_count?: number
@@ -68,25 +59,6 @@ export interface BroadcastKpi {
   region?: string               // 지역/언어 필터용
   acv?: number                  // Average Concurrent Viewers
   cost_usd?: number             // 코스트리밍 집행 비용 (ROI 계산용)
-  recorded_at: string
-}
-
-export interface CompetitiveKpi {
-  id: string
-  event_id: string
-  team_count?: number
-  player_count?: number
-  country_count?: number
-  prize_pool_usd?: number
-  recorded_at: string
-}
-
-export interface LiveEventKpi {
-  id: string
-  event_id: string
-  total_attendance?: number
-  ticket_sales_rate?: number
-  avg_occupancy?: number
   recorded_at: string
 }
 

@@ -1,6 +1,5 @@
 import type {
-  Event, KpiTarget, ViewershipKpi, SocialKpi,
-  BroadcastKpi, CompetitiveKpi, LiveEventKpi, ReportHistory,
+  Event, ViewershipKpi, SocialKpi, CostreamingKpi, ReportHistory,
 } from '@/types'
 
 export const MOCK_EVENTS: Event[] = [
@@ -10,23 +9,6 @@ export const MOCK_EVENTS: Event[] = [
   { id: '11111111-0000-0000-0000-000000000004', name: 'PNC 2026', type: 'PNC', year: 2026, start_date: '2026-06-15', end_date: '2026-06-24', venue: 'TBD', region: 'APAC', status: 'upcoming' },
 ]
 
-export const MOCK_KPI_TARGETS: Record<string, KpiTarget[]> = {
-  '11111111-0000-0000-0000-000000000001': [
-    { id: 't1', event_id: '11111111-0000-0000-0000-000000000001', category: 'viewership', metric: 'peak_ccv',         target_value: 500000,   unit: '명' },
-    { id: 't2', event_id: '11111111-0000-0000-0000-000000000001', category: 'viewership', metric: 'hours_watched',    target_value: 4000000,  unit: '시간' },
-    { id: 't3', event_id: '11111111-0000-0000-0000-000000000001', category: 'viewership', metric: 'unique_viewers',   target_value: 2000000,  unit: '명' },
-    { id: 't4', event_id: '11111111-0000-0000-0000-000000000001', category: 'social',     metric: 'impressions',      target_value: 10000000, unit: '회' },
-    { id: 't5', event_id: '11111111-0000-0000-0000-000000000001', category: 'social',     metric: 'engagements',      target_value: 500000,   unit: '회' },
-    { id: 't6', event_id: '11111111-0000-0000-0000-000000000001', category: 'live_event', metric: 'total_attendance', target_value: 8000,     unit: '명' },
-    { id: 't7', event_id: '11111111-0000-0000-0000-000000000001', category: 'competitive',metric: 'team_count',       target_value: 16,       unit: '팀' },
-    { id: 't8', event_id: '11111111-0000-0000-0000-000000000001', category: 'competitive',metric: 'country_count',    target_value: 16,       unit: '개국' },
-  ],
-  '11111111-0000-0000-0000-000000000003': [
-    { id: 't9',  event_id: '11111111-0000-0000-0000-000000000003', category: 'viewership', metric: 'peak_ccv',      target_value: 300000,  unit: '명' },
-    { id: 't10', event_id: '11111111-0000-0000-0000-000000000003', category: 'viewership', metric: 'hours_watched', target_value: 2000000, unit: '시간' },
-    { id: 't11', event_id: '11111111-0000-0000-0000-000000000003', category: 'social',     metric: 'impressions',   target_value: 5000000, unit: '회' },
-  ],
-}
 
 export const MOCK_VIEWERSHIP: Record<string, ViewershipKpi[]> = {
   '11111111-0000-0000-0000-000000000001': [
@@ -60,18 +42,9 @@ export const MOCK_SOCIAL: Record<string, SocialKpi[]> = {
   ],
 }
 
-export const MOCK_BROADCAST: Record<string, BroadcastKpi> = {
+export const MOCK_COSTREAMING: Record<string, CostreamingKpi> = {
   '11111111-0000-0000-0000-000000000001': { id: 'b1', event_id: '11111111-0000-0000-0000-000000000001', channel_count: 18, co_streamer_count: 42, co_streamer_viewers: 280000, coverage_regions: 12, clip_views: 4200000, recorded_at: '2025-06-29T12:00:00Z' },
   '11111111-0000-0000-0000-000000000003': { id: 'b2', event_id: '11111111-0000-0000-0000-000000000003', channel_count: 12, co_streamer_count: 28, co_streamer_viewers: 160000, coverage_regions: 8,  clip_views: 2400000, recorded_at: '2025-03-16T12:00:00Z' },
-}
-
-export const MOCK_COMPETITIVE: Record<string, CompetitiveKpi> = {
-  '11111111-0000-0000-0000-000000000001': { id: 'c1', event_id: '11111111-0000-0000-0000-000000000001', team_count: 16, player_count: 64, country_count: 16, prize_pool_usd: 500000, recorded_at: '2025-06-29T12:00:00Z' },
-  '11111111-0000-0000-0000-000000000003': { id: 'c2', event_id: '11111111-0000-0000-0000-000000000003', team_count: 16, player_count: 64, country_count: 12, prize_pool_usd: 200000, recorded_at: '2025-03-16T12:00:00Z' },
-}
-
-export const MOCK_LIVE_EVENT: Record<string, LiveEventKpi> = {
-  '11111111-0000-0000-0000-000000000001': { id: 'le1', event_id: '11111111-0000-0000-0000-000000000001', total_attendance: 7420, ticket_sales_rate: 0.928, avg_occupancy: 0.895, recorded_at: '2025-06-29T12:00:00Z' },
 }
 
 // ─── 언어별 CCV 분포 ────────────────────────────────────────────────────────

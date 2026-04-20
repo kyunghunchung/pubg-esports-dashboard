@@ -6,7 +6,6 @@ import {
   getViewershipTotal,
   getViewershipByPlatform,
   getViewershipDataType,
-  getKpiTargets,
   getContentAggregated,
   getSocialAggregatedByPlatform,
 } from '@/lib/store'
@@ -63,11 +62,7 @@ export default function DashboardPage() {
   const total          = singleUUID ? getViewershipTotal(data!, singleUUID) : null
   const byPlatform     = singleUUID ? getViewershipByPlatform(data!, singleUUID) : []
   const viewershipType = singleUUID ? getViewershipDataType(data!, singleUUID) : 'none'
-  const isTypeBData    = viewershipType === 'B'
-  const targets        = singleUUID ? getKpiTargets(data!, singleUUID) : []
-
-  const getTarget = (metric: string) =>
-    targets.find(t => t.metric === metric)?.target_value
+  const isTypeBData = viewershipType === 'B'
 
   const pccv = total?.peak_ccv ?? 0
   const accv = total?.acv ?? 0
@@ -142,7 +137,6 @@ export default function DashboardPage() {
               sublabel="Peak Concurrent Viewers"
               value={pccv}
               unit="명"
-              target={getTarget('peak_ccv')}
               disabled={!isSingleEvent}
               caption={isTypeBData ? '※ 플랫폼별 PCCV 합산 수치입니다' : undefined}
             />
@@ -151,7 +145,6 @@ export default function DashboardPage() {
               sublabel="Average Concurrent Viewers"
               value={accv}
               unit="명"
-              target={getTarget('acv')}
               disabled={!isSingleEvent}
             />
             <KpiCard
@@ -159,7 +152,6 @@ export default function DashboardPage() {
               sublabel="Unique Viewers"
               value={total?.unique_viewers ?? 0}
               unit="명"
-              target={getTarget('unique_viewers')}
               disabled={!isSingleEvent}
             />
             <KpiCard

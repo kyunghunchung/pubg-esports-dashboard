@@ -187,7 +187,7 @@ function UploadPanel({ tab, onAddEntry, onReanalyzeReady }: {
       const { error } = await saveTypedKpisToSupabase(
         result.events,
         config.mergeType,
-        { viewership: result.viewership, social: result.social, broadcast: result.broadcast },
+        { viewership: result.viewership, social: result.social, costreaming: result.costreaming },
       )
 
       const entry: HistoryEntry = {

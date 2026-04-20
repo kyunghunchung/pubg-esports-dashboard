@@ -1,23 +1,18 @@
-import { AchievementBanner } from '@/components/kpi/AchievementBanner'
 import { SocialBarChart } from '@/components/charts/SocialBarChart'
 import { formatNumber } from '@/lib/utils'
-import type { SocialKpi, KpiTarget } from '@/types'
+import type { SocialKpi } from '@/types'
 
 interface Props {
   social: SocialKpi[]
-  targets: KpiTarget[]
 }
 
 const PLATFORM_LABEL: Record<string, string> = {
   x: 'X (Twitter)', instagram: 'Instagram', facebook: 'Facebook', tiktok: 'TikTok', youtube: 'YouTube',
 }
 
-export function SocialTab({ social, targets }: Props) {
+export function SocialTab({ social }: Props) {
   const totalImpressions = social.reduce((s, r) => s + r.impressions, 0)
   const totalEngagements = social.reduce((s, r) => s + r.engagements, 0)
-
-  const getTarget = (metric: string) =>
-    targets.find((t) => t.category === 'social' && t.metric === metric)?.target_value ?? 0
 
   const chartData = social.map((s) => ({
     platform: PLATFORM_LABEL[s.platform] ?? s.platform,
@@ -28,10 +23,6 @@ export function SocialTab({ social, targets }: Props) {
 
   return (
     <div className="space-y-6">
-      {getTarget('impressions') > 0 && (
-        <AchievementBanner metric="소셜 노출" target={getTarget('impressions')} actual={totalImpressions} unit="회" />
-      )}
-
       {/* 플랫폼별 상세 테이블 */}
       <div className="bg-brand-surface border border-brand-border rounded-xl overflow-hidden">
         <table className="w-full text-sm">

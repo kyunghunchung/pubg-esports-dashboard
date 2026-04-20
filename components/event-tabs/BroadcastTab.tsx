@@ -1,8 +1,8 @@
 import { formatNumber } from '@/lib/utils'
-import type { BroadcastKpi } from '@/types'
+import type { CostreamingKpi } from '@/types'
 
 interface Props {
-  broadcast: BroadcastKpi | null
+  broadcast: CostreamingKpi | null
 }
 
 export function BroadcastTab({ broadcast }: Props) {
