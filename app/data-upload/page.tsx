@@ -497,7 +497,7 @@ function EventMasterPanel({
   loading: boolean
   onAdd: (entry: EventMasterEntry) => Promise<{ error: string | null }>
   onDelete: (event_id: string) => Promise<{ error: string | null }>
-  onReorder: (a: EventMasterEntry, b: EventMasterEntry) => Promise<{ error: string | null }>
+  onReorder: (items: EventMasterEntry[]) => Promise<{ error: string | null }>
 }) {
   const BLANK: EventMasterEntry = { event_id: '', display_name: '', year: new Date().getFullYear(), is_global: true, sort_order: 99 }
   const [form, setForm]         = useState<EventMasterEntry>(BLANK)
@@ -536,12 +536,24 @@ function EventMasterPanel({
   }
 
   async function handleReorder(entry: EventMasterEntry, dir: 'up' | 'down') {
-    const sorted = entries.filter(e => e.year === entry.year).sort((a, b) => a.sort_order - b.sort_order)
+    // 1. 해당 연도 항목을 현재 sort_order 기준으로 정렬
+    const sorted = entries
+      .filter(e => e.year === entry.year)
+      .sort((a, b) => a.sort_order - b.sort_order)
     const idx = sorted.findIndex(e => e.event_id === entry.event_id)
-    const swapIdx = dir === 'up' ? idx - 1 : idx + 1
-    if (swapIdx < 0 || swapIdx >= sorted.length) return
+    const newIdx = dir === 'up' ? idx - 1 : idx + 1
+    if (newIdx < 0 || newIdx >= sorted.length) return
+
+    // 2. 배열에서 항목 이동
+    const reordered = [...sorted]
+    const [moved] = reordered.splice(idx, 1)
+    reordered.splice(newIdx, 0, moved)
+
+    // 3. sort_order 를 1, 2, 3... 으로 재할당 (충돌·중복 제거)
+    const normalized = reordered.map((e, i) => ({ ...e, sort_order: i + 1 }))
+
     setReordering(true)
-    const { error } = await onReorder(entry, sorted[swapIdx])
+    const { error } = await onReorder(normalized)
     if (error) alert(`순서 변경 오류: ${error}`)
     setReordering(false)
   }

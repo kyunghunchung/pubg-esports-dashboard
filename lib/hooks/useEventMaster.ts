@@ -34,13 +34,13 @@ export function useEventMaster() {
     return { error }
   }
 
-  /** 같은 연도 내 두 항목의 sort_order 를 교환합니다 */
-  async function reorderEntries(a: EventMasterEntry, b: EventMasterEntry): Promise<{ error: string | null }> {
-    const [ra, rb] = await Promise.all([
-      upsertEventMasterEntry({ ...a, sort_order: b.sort_order }),
-      upsertEventMasterEntry({ ...b, sort_order: a.sort_order }),
-    ])
-    const error = ra.error ?? rb.error ?? null
+  /**
+   * 연도 내 항목 배열을 새 순서(이미 정규화된 sort_order 포함)로 일괄 저장합니다.
+   * 패널 쪽에서 배열 재배치 + sort_order 1,2,3... 재할당을 완료한 뒤 호출하세요.
+   */
+  async function reorderEntries(items: EventMasterEntry[]): Promise<{ error: string | null }> {
+    const results = await Promise.all(items.map(item => upsertEventMasterEntry(item)))
+    const error = results.find(r => r.error)?.error ?? null
     if (!error) await reload()
     return { error }
   }
