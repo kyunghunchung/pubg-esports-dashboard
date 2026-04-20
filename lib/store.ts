@@ -107,6 +107,70 @@ export function getSocialAggregatedByPlatform(data: DashboardData, eventIds: str
   return Array.from(map.values())
 }
 
+export interface SocialTrendPoint {
+  period:        string   // 'YYYY-MM' or 'YYYY-Www'
+  impressions:   number
+  content_count: number
+  engagements:   number
+  video_views:   number
+}
+
+/** 소셜 데이터를 월간/주간 기준으로 집계 — Date 컬럼이 업로드된 경우에만 의미 있음 */
+export function getSocialTrend(
+  data: DashboardData,
+  eventIds: string[],
+  period: 'monthly' | 'weekly',
+  filters: {
+    platform?:      string
+    region?:        string
+    content_type_1?: string
+    content_type_2?: string
+  } = {}
+): SocialTrendPoint[] {
+  let rows = data.social.filter(s => eventIds.includes(s.event_id))
+  if (filters.platform)       rows = rows.filter(s => s.platform === filters.platform)
+  if (filters.region)         rows = rows.filter(s => s.region   === filters.region)
+  if (filters.content_type_1) rows = rows.filter(s => s.content_type_1 === filters.content_type_1)
+  if (filters.content_type_2) rows = rows.filter(s => s.content_type_2 === filters.content_type_2)
+
+  function periodKey(iso: string): string {
+    const d = new Date(iso)
+    if (period === 'monthly') {
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    }
+    // ISO 주차 계산
+    const tmp = new Date(d)
+    tmp.setHours(0, 0, 0, 0)
+    tmp.setDate(tmp.getDate() + 3 - (tmp.getDay() + 6) % 7)
+    const jan4 = new Date(tmp.getFullYear(), 0, 4)
+    const week = 1 + Math.round(
+      ((tmp.getTime() - jan4.getTime()) / 86400000 - 3 + (jan4.getDay() + 6) % 7) / 7
+    )
+    return `${tmp.getFullYear()}-W${String(week).padStart(2, '0')}`
+  }
+
+  const map = new Map<string, SocialTrendPoint>()
+  for (const row of rows) {
+    const key = periodKey(row.recorded_at)
+    const cur = map.get(key) ?? { period: key, impressions: 0, content_count: 0, engagements: 0, video_views: 0 }
+    cur.impressions   += row.impressions
+    cur.content_count += row.content_count ?? 0
+    cur.engagements   += row.engagements
+    cur.video_views   += row.video_views
+    map.set(key, cur)
+  }
+
+  return Array.from(map.values()).sort((a, b) => a.period.localeCompare(b.period))
+}
+
+/** 소셜 데이터에 유효한 날짜가 있는지 확인 (트렌드 뷰 표시 여부 결정) */
+export function hasSocialDateData(data: DashboardData, eventIds: string[]): boolean {
+  const rows = data.social.filter(s => eventIds.includes(s.event_id))
+  if (rows.length < 2) return false
+  const dates = new Set(rows.map(s => s.recorded_at.slice(0, 10)))
+  return dates.size > 1  // 날짜가 2개 이상 다르면 날짜 데이터 있음
+}
+
 /** 코스트리밍 KPI (복수 이벤트, 선택적 지역 필터) */
 export function getCostreamingAggregated(data: DashboardData, eventIds: string[], region?: string) {
   let rows = data.costreaming.filter(b => eventIds.includes(b.event_id))

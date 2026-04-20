@@ -9,8 +9,15 @@ import {
   getDisplayName,
 } from '@/lib/config/event-master'
 import { KpiCard } from '@/components/kpi/KpiCard'
+import { getSocialTrend, hasSocialDateData } from '@/lib/store'
 import { formatNumber } from '@/lib/utils'
 import { cn } from '@/lib/utils'
+import dynamic from 'next/dynamic'
+
+const ContentsTrendChart = dynamic(
+  () => import('@/components/charts/ContentsTrendChart').then(m => m.ContentsTrendChart),
+  { ssr: false },
+)
 
 const CONTENT_TYPE_1_OPTIONS = ['숏폼', '롱폼', '포스트']
 const CONTENT_TYPE_2_OPTIONS = ['하이라이트', '프로모션', '하이핑']
@@ -63,6 +70,10 @@ export default function ContentsPage() {
   const [filterPlatform, setFilterPlatform] = useState('')
   const [filterType1,    setFilterType1]    = useState('')
   const [filterType2,    setFilterType2]    = useState('')
+
+  // 트렌드 뷰 상태
+  const [trendPeriod,  setTrendPeriod]  = useState<'monthly' | 'weekly'>('monthly')
+  const [trendMetric,  setTrendMetric]  = useState<'impressions' | 'content_count' | 'engagements' | 'video_views'>('impressions')
 
   // 연도 옵션 — EVENT_MASTER 기준
   const yearOptions = getAllYears()
@@ -120,6 +131,22 @@ export default function ContentsPage() {
     if (!data) return []
     return Array.from(new Set(data.social.map(s => s.region).filter(Boolean))) as string[]
   }, [data])
+
+  // 트렌드 데이터 (필터 적용)
+  const hasDateData = useMemo(() =>
+    data ? hasSocialDateData(data, filteredUUIDs) : false,
+    [data, filteredUUIDs]
+  )
+
+  const trendData = useMemo(() => {
+    if (!data || !hasDateData) return []
+    return getSocialTrend(data, filteredUUIDs, trendPeriod, {
+      platform:       filterPlatform || undefined,
+      region:         filterRegion   || undefined,
+      content_type_1: filterType1    || undefined,
+      content_type_2: filterType2    || undefined,
+    })
+  }, [data, filteredUUIDs, trendPeriod, filterPlatform, filterRegion, filterType1, filterType2, hasDateData])
 
   if (loading && !data) return <div className="min-h-screen bg-brand-bg" />
 
@@ -220,6 +247,55 @@ export default function ContentsPage() {
             <KpiCard label="Engagement" value={kpi.engagements}  unit="회" />
           </div>
         </section>
+
+        {/* 기간별 트렌드 */}
+        {hasDateData ? (
+          <section className="bg-brand-surface border border-brand-border rounded-xl p-6 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-semibold text-gray-300">기간별 트렌드</h2>
+                <p className="text-xs text-gray-500 mt-0.5">날짜 데이터가 있는 경우에만 표시됩니다</p>
+              </div>
+              <div className="flex items-center gap-2">
+                {/* 주기 토글 */}
+                <div className="flex rounded-lg border border-brand-border overflow-hidden">
+                  {(['monthly', 'weekly'] as const).map(p => (
+                    <button
+                      key={p}
+                      onClick={() => setTrendPeriod(p)}
+                      className={cn(
+                        'px-3 py-1.5 text-xs font-medium transition-colors',
+                        trendPeriod === p
+                          ? 'bg-brand-accent text-white'
+                          : 'text-gray-400 hover:text-white'
+                      )}
+                    >
+                      {p === 'monthly' ? '월간' : '주간'}
+                    </button>
+                  ))}
+                </div>
+                {/* 지표 선택 */}
+                <select
+                  value={trendMetric}
+                  onChange={e => setTrendMetric(e.target.value as typeof trendMetric)}
+                  className="bg-brand-bg border border-brand-border rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-brand-accent"
+                >
+                  <option value="impressions">노출</option>
+                  <option value="content_count">콘텐츠 수</option>
+                  <option value="engagements">Engagement</option>
+                  <option value="video_views">조회 수</option>
+                </select>
+              </div>
+            </div>
+            <ContentsTrendChart data={trendData} metric={trendMetric} period={trendPeriod} />
+          </section>
+        ) : (
+          data && filteredUUIDs.length > 0 && (
+            <section className="bg-brand-surface border border-brand-border rounded-xl p-5 flex items-center gap-3">
+              <span className="text-gray-500 text-sm">기간별 트렌드를 보려면 Contents 템플릿에 <code className="bg-brand-bg px-1.5 py-0.5 rounded text-xs text-gray-300">Date</code> 컬럼을 채워서 업로드하세요.</span>
+            </section>
+          )
+        )}
 
         {/* 플랫폼별 상세 테이블 */}
         {filteredSocial.length > 0 ? (

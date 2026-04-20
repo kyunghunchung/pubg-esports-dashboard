@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import {
   getViewershipTotal,
@@ -8,6 +8,8 @@ import {
   getViewershipDataType,
   getContentAggregated,
   getSocialAggregatedByPlatform,
+  getSocialTrend,
+  hasSocialDateData,
 } from '@/lib/store'
 import { useDashboardData } from '@/lib/hooks/useDashboardData'
 import {
@@ -17,6 +19,7 @@ import {
 } from '@/lib/config/event-master'
 import { KpiCard } from '@/components/kpi/KpiCard'
 import { TournamentFilter } from '@/components/dashboard/TournamentFilter'
+import { cn } from '@/lib/utils'
 import dynamic from 'next/dynamic'
 
 const PlatformCcvChart = dynamic(
@@ -27,11 +30,17 @@ const SocialPlatformChart = dynamic(
   () => import('@/components/charts/SocialPlatformChart').then(m => m.SocialPlatformChart),
   { ssr: false },
 )
+const ContentsTrendChart = dynamic(
+  () => import('@/components/charts/ContentsTrendChart').then(m => m.ContentsTrendChart),
+  { ssr: false },
+)
 
 export default function DashboardPage() {
   const { data, loading } = useDashboardData()
   // selectedIds = EVENT_MASTER event_id 배열 (예: ['PNC_2025'])
   const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [trendPeriod, setTrendPeriod] = useState<'monthly' | 'weekly'>('monthly')
+  const [trendMetric, setTrendMetric] = useState<'impressions' | 'content_count' | 'engagements' | 'video_views'>('impressions')
 
   // 기본 선택: 최신 연도 첫 번째 글로벌 이벤트 (EVENT_MASTER 기준)
   useEffect(() => {
@@ -70,6 +79,14 @@ export default function DashboardPage() {
 
   // ── Contents KPI (항상 집계, UUID 기준) ──
   const content = data ? getContentAggregated(data, selectedUUIDs) : { impressions: 0, content_count: 0 }
+
+  // ── Contents 트렌드 ──
+  const hasDateData = data ? hasSocialDateData(data, selectedUUIDs) : false
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const trendData = useMemo(() => {
+    if (!data || !hasDateData) return []
+    return getSocialTrend(data, selectedUUIDs, trendPeriod)
+  }, [data, selectedUUIDs, trendPeriod, hasDateData])
 
   // ── 차트 데이터 ──
   const ccvChartData = byPlatform.map(v => ({
@@ -178,9 +195,47 @@ export default function DashboardPage() {
             Contents
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <KpiCard label="Impression"        value={content.impressions}   unit="회" />
+            <KpiCard label="Impression"         value={content.impressions}   unit="회" />
             <KpiCard label="Number of Contents" value={content.content_count} unit="건" />
           </div>
+
+          {/* 기간별 트렌드 — Date 데이터 있을 때만 */}
+          {hasDateData ? (
+            <div className="bg-brand-surface border border-brand-border rounded-xl p-5 space-y-4 mt-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-gray-300">기간별 트렌드</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex rounded-lg border border-brand-border overflow-hidden">
+                    {(['monthly', 'weekly'] as const).map(p => (
+                      <button
+                        key={p}
+                        onClick={() => setTrendPeriod(p)}
+                        className={cn(
+                          'px-3 py-1.5 text-xs font-medium transition-colors',
+                          trendPeriod === p ? 'bg-brand-accent text-white' : 'text-gray-400 hover:text-white'
+                        )}
+                      >
+                        {p === 'monthly' ? '월간' : '주간'}
+                      </button>
+                    ))}
+                  </div>
+                  <select
+                    value={trendMetric}
+                    onChange={e => setTrendMetric(e.target.value as typeof trendMetric)}
+                    className="bg-brand-bg border border-brand-border rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-brand-accent"
+                  >
+                    <option value="impressions">노출</option>
+                    <option value="content_count">콘텐츠 수</option>
+                    <option value="engagements">Engagement</option>
+                    <option value="video_views">조회 수</option>
+                  </select>
+                </div>
+              </div>
+              <ContentsTrendChart data={trendData} metric={trendMetric} period={trendPeriod} />
+            </div>
+          ) : null}
         </section>
 
         {/* ── 차트 1: 플랫폼별 PCCV ── */}

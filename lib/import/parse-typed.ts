@@ -147,9 +147,10 @@ export function parseViewershipFile(buffer: ArrayBuffer): TypedParseResult {
 }
 
 // ── Contents 파서 ───────────────────────────────────────────────
-// 컬럼: event_id | Platform | Region / Language | Content Type 1 | Content Type 2
+// 컬럼: event_id | Date (Optional) | Platform | Region / Language | Content Type 1 | Content Type 2
 //        | Number of Contents | Impression | Views | Likes | Comments
-// (Date 컬럼 없음 — 대회 단위 집계)
+// Date 있음 → 날짜별 트래킹 (월간/주간 집계 가능)
+// Date 없음 → 대회 연도 말일로 기본값 설정
 
 export function parseContentsFile(buffer: ArrayBuffer): TypedParseResult {
   const wb   = XLSX.read(buffer, { type: 'array', cellDates: true })
@@ -189,6 +190,14 @@ export function parseContentsFile(buffer: ArrayBuffer): TypedParseResult {
       events.push(masterToEvent(master))
     }
 
+    // Date 컬럼 파싱 — 값 있으면 해당 날짜, 없으면 대회 연도 말일
+    const dateRaw = str(raw['Date'] ?? raw['date'] ?? raw['날짜'] ?? '')
+    let recordedAt = new Date(master.year, 11, 31).toISOString()
+    if (dateRaw) {
+      const parsed = new Date(dateRaw)
+      if (!isNaN(parsed.getTime())) recordedAt = parsed.toISOString()
+    }
+
     social.push({
       id:             crypto.randomUUID(),
       event_id:       master.event_id,
@@ -201,7 +210,7 @@ export function parseContentsFile(buffer: ArrayBuffer): TypedParseResult {
       region:         str(raw['Region / Language'] ?? raw['Region/Language']) || undefined,
       content_type_1: str(raw['Content Type 1']) || undefined,
       content_type_2: str(raw['Content Type 2']) || undefined,
-      recorded_at:    new Date(master.year, 11, 31).toISOString(),
+      recorded_at:    recordedAt,
     })
   })
 
