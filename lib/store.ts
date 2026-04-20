@@ -133,10 +133,12 @@ export function getSocialTrend(
   if (filters.content_type_1) rows = rows.filter(s => s.content_type_1 === filters.content_type_1)
   if (filters.content_type_2) rows = rows.filter(s => s.content_type_2 === filters.content_type_2)
 
-  function periodKey(iso: string): string {
+  function periodKey(iso: string | null | undefined): string {
+    if (!iso) return 'unknown'
     // UTC 날짜 기준으로 파싱 (로컬 시간대 영향 배제)
     const ymd = iso.slice(0, 10)  // "YYYY-MM-DD"
     const [y, m, day] = ymd.split('-').map(Number)
+    if (!y || !m || !day) return 'unknown'
     if (period === 'monthly') {
       return `${y}-${String(m).padStart(2, '0')}`
     }
