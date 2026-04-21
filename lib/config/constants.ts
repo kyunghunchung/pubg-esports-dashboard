@@ -10,15 +10,17 @@
 export const PLATFORMS = {
   chzzk:       'CHZZK',
   facebook:    'Facebook',
+  instagram:   'Instagram',
   kick:        'Kick',
   nimotv:      'Nimo TV',
   soop_global: 'SOOP (Global)',
   soop_korea:  'SOOP Korea',
   steam:       'Steam',
   tiktok:      'TikTok',
-  twitch:      'Twitch',
-  youtube:     'YouTube',
   trovo:       'Trovo',
+  twitch:      'Twitch',
+  x:           'X (Twitter)',
+  youtube:     'YouTube',
 } as const
 
 export type PlatformId = keyof typeof PLATFORMS
@@ -99,6 +101,11 @@ const PLATFORM_ALIASES: Record<string, PlatformId> = {
   '치지직':        'chzzk',
   // TikTok 대소문자 변형
   'tik tok':     'tiktok',
+  // X (Twitter) 별칭
+  twitter:       'x',
+  'x (twitter)': 'x',
+  // Instagram 별칭
+  ig:            'instagram',
 }
 
 /** 플랫폼 입력값 → 정규화된 PlatformId. 매칭 실패 시 null 반환 */

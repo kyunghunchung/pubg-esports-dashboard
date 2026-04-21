@@ -116,13 +116,22 @@ export default function CostreamingPage() {
 
   const regionChartData = useMemo(() => {
     if (!data) return []
-    return getCostreamingByRegion(data, filteredUUIDs).map(r => ({ name: r.region, value: r.viewers }))
+    const all = getCostreamingByRegion(data, filteredUUIDs).map(r => ({ name: r.region, value: r.viewers }))
+    if (all.length <= 5) return all
+    const top5 = all.slice(0, 5)
+    const othersValue = all.slice(5).reduce((s, r) => s + r.value, 0)
+    if (othersValue > 0) top5.push({ name: 'Others', value: othersValue })
+    return top5
   }, [data, filteredUUIDs])
 
   const platformChartData = useMemo(() => {
     if (!data) return []
-    return getCostreamingByPlatform(data, filteredUUIDs).map(r => ({ name: r.platform, value: r.viewers }))
+    // platform 필드가 없는 기존 데이터 → region 기준 fallback 대신 빈 배열 반환
+    const rows = getCostreamingByPlatform(data, filteredUUIDs)
+    return rows.map(r => ({ name: r.platform, value: r.viewers }))
   }, [data, filteredUUIDs])
+
+  const hasPlatformData = platformChartData.length > 0
 
   const roi = coKpi && coKpi.total_cost_usd > 0 && coKpi.peak_view_sum > 0
     ? coKpi.total_cost_usd / coKpi.peak_view_sum
@@ -258,10 +267,18 @@ export default function CostreamingPage() {
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">
               {t('coPlatformRatio')}
             </h3>
-            <RatioDonutChart
-              data={platformChartData}
-              emptyText={t('coNoChartData')}
-            />
+            {hasPlatformData ? (
+              <RatioDonutChart data={platformChartData} emptyText={t('coNoChartData')} />
+            ) : (
+              <div className="flex flex-col items-center justify-center h-[220px] gap-2 text-center">
+                <p className="text-gray-500 text-sm">{t('coNoChartData')}</p>
+                <p className="text-gray-600 text-xs max-w-[200px]">
+                  {lang === 'ko'
+                    ? '템플릿의 Platform 컬럼을 입력 후 다시 업로드해주세요'
+                    : 'Fill in the Platform column and re-upload'}
+                </p>
+              </div>
+            )}
           </section>
         </div>
 
