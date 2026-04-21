@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useDashboardData } from '@/lib/hooks/useDashboardData'
+import { useLang } from '@/lib/context/lang'
 import dynamic from 'next/dynamic'
 
 const ReportsClient = dynamic(
@@ -11,6 +12,7 @@ const ReportsClient = dynamic(
 
 export default function ReportsPage() {
   const { data, loading } = useDashboardData()
+  const { t } = useLang()
 
   if (loading && !data) return <div className="min-h-screen bg-brand-bg" />
 
@@ -19,10 +21,10 @@ export default function ReportsPage() {
       <main className="min-h-screen bg-brand-bg text-white flex items-center justify-center">
         <div className="text-center space-y-4">
           <p className="text-5xl">📂</p>
-          <h2 className="text-xl font-bold">업로드된 데이터가 없습니다</h2>
-          <p className="text-gray-400 text-sm">엑셀 파일을 업로드하면 리포트를 생성할 수 있습니다.</p>
+          <h2 className="text-xl font-bold">{t('noDataTitle')}</h2>
+          <p className="text-gray-400 text-sm">{t('reportsNoDataDesc')}</p>
           <Link href="/data-upload" className="inline-block mt-2 px-5 py-2.5 rounded-lg bg-brand-accent text-white text-sm font-medium hover:bg-brand-accent/80">
-            데이터 업로드 →
+            {t('uploadDataBtn')}
           </Link>
         </div>
       </main>
@@ -34,10 +36,10 @@ export default function ReportsPage() {
       <div className="border-b border-brand-border">
         <div className="max-w-7xl mx-auto px-6 py-6">
           <Link href="/dashboard" className="text-sm text-gray-400 hover:text-white mb-4 inline-block">
-            ← 대시보드
+            {t('backToDashboard')}
           </Link>
-          <h1 className="text-2xl font-bold">리포트</h1>
-          <p className="text-sm text-gray-400 mt-1">이벤트 KPI 리포트 생성 및 Excel 다운로드</p>
+          <h1 className="text-2xl font-bold">{t('reportsTitle')}</h1>
+          <p className="text-sm text-gray-400 mt-1">{t('reportsSubtitle')}</p>
         </div>
       </div>
       <div className="max-w-7xl mx-auto px-6 py-8">

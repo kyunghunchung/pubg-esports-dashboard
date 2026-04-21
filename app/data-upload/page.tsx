@@ -19,6 +19,7 @@ import {
 } from '@/lib/export/template'
 import type { EventMasterEntry } from '@/lib/config/event-master'
 import { useEventMaster } from '@/lib/hooks/useEventMaster'
+import { useLang } from '@/lib/context/lang'
 
 // ── 업로드 히스토리 (localStorage) ──────────────────────────────
 const HISTORY_KEY = 'pubg_upload_history_v1'
@@ -61,6 +62,7 @@ const TAB_CONFIG: Record<UploadTab, { label: string; templateName: string | null
 
 // ── 패스워드 게이트 ──────────────────────────────────────────────
 function PasswordGate({ onUnlock }: { onUnlock: () => void }) {
+  const { t } = useLang()
   const [input, setInput] = useState('')
   const [error, setError] = useState(false)
 
@@ -76,27 +78,27 @@ function PasswordGate({ onUnlock }: { onUnlock: () => void }) {
         <div className="bg-brand-surface border border-brand-border rounded-xl p-8 space-y-6">
           <div className="text-center">
             <p className="text-2xl mb-2">🔒</p>
-            <h1 className="text-lg font-bold">업로드 접근 제한</h1>
-            <p className="text-sm text-gray-400 mt-1">업로드 권한이 있는 사용자만 접근 가능합니다</p>
+            <h1 className="text-lg font-bold">{t('uploadAccessTitle')}</h1>
+            <p className="text-sm text-gray-400 mt-1">{t('uploadAccessDesc')}</p>
           </div>
           <form onSubmit={handleSubmit} className="space-y-3">
             <input
               type="password"
               value={input}
               onChange={e => { setInput(e.target.value); setError(false) }}
-              placeholder="패스워드 입력"
+              placeholder={t('uploadPasswordPh')}
               autoFocus
               className={cn(
                 'w-full px-4 py-2.5 rounded-lg bg-brand-bg border text-white text-sm placeholder-gray-600 outline-none transition-colors',
                 error ? 'border-red-500' : 'border-brand-border focus:border-brand-accent'
               )}
             />
-            {error && <p className="text-xs text-red-400">패스워드가 올바르지 않습니다</p>}
+            {error && <p className="text-xs text-red-400">{t('uploadPasswordErr')}</p>}
             <button
               type="submit"
               className="w-full px-4 py-2.5 rounded-lg bg-brand-accent text-white text-sm font-medium hover:bg-brand-accent/80 transition-all"
             >
-              확인
+              {t('confirm')}
             </button>
           </form>
         </div>
@@ -111,6 +113,7 @@ function UploadPanel({ tab, onAddEntry, onReanalyzeReady }: {
   onAddEntry: (entry: EventMasterEntry) => Promise<{ error: string | null }>
   onReanalyzeReady: () => void
 }) {
+  const { t, lang } = useLang()
   const config       = TAB_CONFIG[tab]
   const inputRef     = useRef<HTMLInputElement>(null)
   const [dragging, setDragging]   = useState(false)
@@ -132,7 +135,7 @@ function UploadPanel({ tab, onAddEntry, onReanalyzeReady }: {
 
   function downloadTemplate() {
     if (!config.templateName) {
-      alert('이 탭의 템플릿은 아직 준비 중입니다.')
+      alert(t('templateComingSoon'))
       return
     }
     try {
@@ -150,13 +153,15 @@ function UploadPanel({ tab, onAddEntry, onReanalyzeReady }: {
       document.body.appendChild(a); a.click()
       document.body.removeChild(a); URL.revokeObjectURL(url)
     } catch (e) {
-      alert(`템플릿 생성 오류: ${String(e)}`)
+      alert(`${t('uploadTemplateTitle')} error: ${String(e)}`)
     }
   }
 
   function handleFileDrop(f: File) {
     if (!f.name.match(/\.(xlsx|csv)$/i)) {
-      alert('허용 형식: .xlsx 또는 .csv 파일만 업로드할 수 있습니다.')
+      alert(lang === 'ko'
+        ? '허용 형식: .xlsx 또는 .csv 파일만 업로드할 수 있습니다.'
+        : 'Only .xlsx or .csv files are allowed.')
       return
     }
     setFile(f); setResult(null); setDone(false)
@@ -173,7 +178,7 @@ function UploadPanel({ tab, onAddEntry, onReanalyzeReady }: {
       else parsed = parseCostreamingFile(buffer)
       setResult(parsed)
     } catch (e) {
-      alert(`파일 분석 오류: ${String(e)}`)
+      alert(`${lang === 'ko' ? '파일 분석 오류' : 'File analysis error'}: ${String(e)}`)
     } finally {
       setUploading(false)
     }
@@ -183,7 +188,6 @@ function UploadPanel({ tab, onAddEntry, onReanalyzeReady }: {
     if (!result || !config.mergeType || !file) return
     setUploading(true)
     try {
-      // 1. 파싱 결과를 Supabase에 직접 저장 (슬러그 → UUID 매핑 내부 처리)
       const { error } = await saveTypedKpisToSupabase(
         result.events,
         config.mergeType,
@@ -203,11 +207,10 @@ function UploadPanel({ tab, onAddEntry, onReanalyzeReady }: {
       refreshHistory()
 
       if (error) {
-        alert(`Supabase 저장 오류: ${error}`)
+        alert(`${lang === 'ko' ? 'Supabase 저장 오류' : 'Supabase save error'}: ${error}`)
         return
       }
 
-      // 2. Supabase에서 최신 데이터 재로드 → localStorage 갱신 (UUID 기반으로 정규화)
       const fresh = await loadFromSupabase()
       if (fresh) saveData(fresh)
 
@@ -217,31 +220,27 @@ function UploadPanel({ tab, onAddEntry, onReanalyzeReady }: {
     }
   }
 
-  // Community 탭: 비활성 상태 (onAddEntry / onReanalyzeReady 미사용)
   if (tab === 'community') {
     return (
       <div className="space-y-6">
-        {/* 템플릿 영역 */}
         <div className="bg-brand-surface border border-brand-border rounded-xl p-6 space-y-3">
-          <h3 className="text-sm font-semibold text-white">템플릿 다운로드</h3>
+          <h3 className="text-sm font-semibold text-white">{t('uploadTemplateTitle')}</h3>
           <button
             disabled
             className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-surface border border-brand-border text-gray-600 text-sm cursor-not-allowed"
           >
-            ↓ template_community.xlsx (준비 중)
+            ↓ template_community.xlsx ({lang === 'ko' ? '준비 중' : 'Coming Soon'})
           </button>
-          <p className="text-xs text-gray-600">커뮤니티 데이터 템플릿은 추후 확정 예정입니다.</p>
+          <p className="text-xs text-gray-600">{t('communityTabNotice')}</p>
         </div>
 
-        {/* 업로드 영역 */}
         <div className="bg-brand-surface border border-brand-border rounded-xl p-6">
-          <h3 className="text-sm font-semibold text-white mb-3">파일 업로드</h3>
+          <h3 className="text-sm font-semibold text-white mb-3">{t('uploadFileTitle')}</h3>
           <div className="border-2 border-dashed border-brand-border rounded-xl p-12 text-center opacity-40 cursor-not-allowed">
-            <p className="text-gray-500 text-sm">Community 업로드 기능은 준비 중입니다.</p>
+            <p className="text-gray-500 text-sm">{t('communityTabNotice')}</p>
           </div>
         </div>
 
-        {/* 히스토리 */}
         <UploadHistory history={[]} />
       </div>
     )
@@ -252,10 +251,8 @@ function UploadPanel({ tab, onAddEntry, onReanalyzeReady }: {
 
       {/* 1. 템플릿 다운로드 */}
       <div className="bg-brand-surface border border-brand-border rounded-xl p-6 space-y-3">
-        <h3 className="text-sm font-semibold text-white">템플릿 다운로드</h3>
-        <p className="text-xs text-gray-500">
-          이 템플릿에 데이터를 입력 후 아래 영역에 업로드하세요. 기존 데이터와 병합됩니다.
-        </p>
+        <h3 className="text-sm font-semibold text-white">{t('uploadTemplateTitle')}</h3>
+        <p className="text-xs text-gray-500">{t('uploadTemplateDesc')}</p>
         <button
           onClick={downloadTemplate}
           className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-accent/20 border border-brand-accent/40 text-brand-accent text-sm font-medium hover:bg-brand-accent/30 transition-all"
@@ -266,30 +263,29 @@ function UploadPanel({ tab, onAddEntry, onReanalyzeReady }: {
 
       {/* 2. 파일 업로드 */}
       <div className="bg-brand-surface border border-brand-border rounded-xl p-6 space-y-4">
-        <h3 className="text-sm font-semibold text-white">파일 업로드</h3>
+        <h3 className="text-sm font-semibold text-white">{t('uploadFileTitle')}</h3>
 
         {done ? (
           <div className="rounded-xl border border-green-500/30 bg-green-500/10 p-5 space-y-3">
-            <p className="text-sm font-semibold text-green-400">✓ 적용 완료</p>
-            <p className="text-xs text-gray-400">데이터가 Supabase에 저장되었고 대시보드에 반영됩니다.</p>
+            <p className="text-sm font-semibold text-green-400">{t('uploadDoneTitle')}</p>
+            <p className="text-xs text-gray-400">{t('uploadDoneDesc')}</p>
             <div className="flex gap-2">
               <Link
                 href="/dashboard"
                 className="px-4 py-2 rounded-lg bg-brand-accent text-white text-sm font-medium hover:bg-brand-accent/80 transition-all"
               >
-                대시보드 보기 →
+                {t('uploadViewDashboard')}
               </Link>
               <button
                 onClick={reset}
                 className="px-4 py-2 rounded-lg border border-brand-border text-gray-400 text-sm hover:text-white transition-colors"
               >
-                추가 업로드
+                {t('uploadAddMore')}
               </button>
             </div>
           </div>
         ) : (
           <>
-            {/* 드래그앤드롭 영역 */}
             <div
               onDragOver={e => { e.preventDefault(); setDragging(true) }}
               onDragLeave={() => setDragging(false)}
@@ -315,54 +311,51 @@ function UploadPanel({ tab, onAddEntry, onReanalyzeReady }: {
               ) : (
                 <div className="space-y-1">
                   <p className="text-3xl text-gray-600">↑</p>
-                  <p className="text-gray-400 text-sm">파일을 드래그하거나 클릭하여 선택</p>
-                  <p className="text-xs text-gray-600">.xlsx / .csv</p>
+                  <p className="text-gray-400 text-sm">{t('uploadDropText')}</p>
+                  <p className="text-xs text-gray-600">{t('uploadDropSubtext')}</p>
                 </div>
               )}
             </div>
 
-            {/* 분석 버튼 */}
             {file && !result && (
               <button
                 onClick={handleAnalyze}
                 disabled={uploading}
                 className="px-5 py-2.5 rounded-lg bg-brand-accent text-white text-sm font-medium hover:bg-brand-accent/80 transition-all disabled:opacity-50"
               >
-                {uploading ? '분석 중...' : '파일 분석 →'}
+                {uploading ? t('uploadAnalyzing') : t('uploadAnalyzeBtn')}
               </button>
             )}
 
-            {/* 분석 결과 */}
             {result && (
               <div className="border border-brand-border rounded-xl p-5 space-y-4">
                 <div className="flex items-center gap-3">
-                  <span className="text-sm font-semibold text-white">분석 결과</span>
+                  <span className="text-sm font-semibold text-white">{t('uploadResultTitle')}</span>
                   <span className="text-xs px-2 py-0.5 rounded-full bg-brand-accent/10 border border-brand-accent/20 text-brand-accent">
-                    {result.rowCount}행 인식
+                    {result.rowCount} {t('uploadRowsFound')}
                   </span>
                 </div>
 
-                {/* 0행 + 오류: 컬럼 형식 오류 가능성 강조 */}
                 {result.rowCount === 0 && result.errors.length === 0 && (
                   <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-lg p-4">
-                    <p className="text-sm font-semibold text-yellow-400">인식된 데이터 없음</p>
-                    <p className="text-xs text-gray-400 mt-1">컬럼명이 템플릿과 다를 수 있습니다. 템플릿을 다운로드해서 형식을 확인해주세요.</p>
+                    <p className="text-sm font-semibold text-yellow-400">{t('uploadNoRowsTitle')}</p>
+                    <p className="text-xs text-gray-400 mt-1">{t('uploadNoRowsDesc')}</p>
                   </div>
                 )}
 
-                {/* 오류 목록 */}
                 {result.errors.length > 0 && (
                   <div className="space-y-3">
                     <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-4 space-y-1">
-                      <p className="text-sm font-semibold text-red-400">오류 {result.errors.length}건</p>
+                      <p className="text-sm font-semibold text-red-400">{t('uploadErrorCount')} {result.errors.length}{lang === 'ko' ? '건' : ''}</p>
                       {result.errors.slice(0, 8).map((e, i) => (
-                        <p key={i} className="text-xs text-red-300">{e.row}행: {e.message}</p>
+                        <p key={i} className="text-xs text-red-300">{lang === 'ko' ? `${e.row}행` : `Row ${e.row}`}: {e.message}</p>
                       ))}
                       {result.errors.length > 8 && (
-                        <p className="text-xs text-gray-500">...외 {result.errors.length - 8}건</p>
+                        <p className="text-xs text-gray-500">
+                          {lang === 'ko' ? `...외 ${result.errors.length - 8}건` : `...and ${result.errors.length - 8} more`}
+                        </p>
                       )}
                     </div>
-                    {/* 미등록 event_id 빠른 추가 */}
                     <UnknownEventQuickAdd
                       errors={result.errors}
                       onAddEntry={onAddEntry}
@@ -371,10 +364,9 @@ function UploadPanel({ tab, onAddEntry, onReanalyzeReady }: {
                   </div>
                 )}
 
-                {/* 이벤트 목록 미리보기 */}
                 {result.events.length > 0 && (
                   <div className="space-y-1">
-                    <p className="text-xs text-gray-400 font-medium">인식된 이벤트</p>
+                    <p className="text-xs text-gray-400 font-medium">{t('uploadEventsFound')}</p>
                     <div className="flex flex-wrap gap-1.5">
                       {result.events.map(e => (
                         <span key={e.id} className="text-xs px-2.5 py-1 rounded-md bg-brand-bg border border-brand-border text-gray-300">
@@ -391,13 +383,13 @@ function UploadPanel({ tab, onAddEntry, onReanalyzeReady }: {
                     disabled={uploading || result.rowCount === 0}
                     className="px-5 py-2.5 rounded-lg bg-green-600/20 border border-green-500/40 text-green-400 text-sm font-medium hover:bg-green-600/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                   >
-                    {uploading ? '저장 중...' : '대시보드에 적용 →'}
+                    {uploading ? t('uploadApplying') : t('uploadApplyBtn')}
                   </button>
                   <button
                     onClick={reset}
                     className="px-5 py-2.5 rounded-lg border border-brand-border text-gray-400 text-sm hover:text-white transition-colors"
                   >
-                    다시 선택
+                    {t('uploadBackSelect')}
                   </button>
                 </div>
               </div>
@@ -422,7 +414,7 @@ function UnknownEventQuickAdd({
   onAddEntry: (entry: EventMasterEntry) => Promise<{ error: string | null }>
   onAllAdded: () => void
 }) {
-  // 오류 메시지에서 미등록 event_id 추출
+  const { t } = useLang()
   const unknownIds = Array.from(new Set(
     errors
       .map(e => /등록되지 않은 이벤트입니다: "([^"]+)"/.exec(e.message)?.[1])
@@ -457,8 +449,8 @@ function UnknownEventQuickAdd({
   return (
     <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-lg p-4 space-y-3">
       <div>
-        <p className="text-sm font-semibold text-yellow-400">미등록 이벤트 {unknownIds.length}개 감지됨</p>
-        <p className="text-xs text-gray-400 mt-0.5">아래 event_id를 Event Master에 추가하면 바로 업로드할 수 있습니다.</p>
+        <p className="text-sm font-semibold text-yellow-400">{t('unknownEventTitle')} {unknownIds.length}</p>
+        <p className="text-xs text-gray-400 mt-0.5">{t('unknownEventDesc')}</p>
       </div>
       <div className="flex flex-wrap gap-1.5">
         {unknownIds.map(id => (
@@ -478,7 +470,7 @@ function UnknownEventQuickAdd({
           disabled={adding}
           className="px-4 py-2 rounded-lg bg-yellow-500/20 border border-yellow-500/40 text-yellow-300 text-sm font-medium hover:bg-yellow-500/30 transition-all disabled:opacity-50"
         >
-          {adding ? '추가 중...' : `전체 추가 후 재분석 →`}
+          {adding ? t('unknownEventAdding') : t('unknownEventAddAll')}
         </button>
       )}
     </div>
@@ -499,6 +491,7 @@ function EventMasterPanel({
   onDelete: (event_id: string) => Promise<{ error: string | null }>
   onReorder: (items: EventMasterEntry[]) => Promise<{ error: string | null }>
 }) {
+  const { t, lang } = useLang()
   const BLANK: EventMasterEntry = { event_id: '', display_name: '', year: new Date().getFullYear(), is_global: true, sort_order: 99 }
   const [form, setForm]         = useState<EventMasterEntry>(BLANK)
   const [editMode, setEditMode] = useState<'add' | 'edit'>('add')
@@ -506,9 +499,8 @@ function EventMasterPanel({
   const [submitting, setSubmitting] = useState(false)
   const [saving, setSaving]     = useState(false)
 
-  // dragId는 ref로 관리 — async 클로저에서 항상 최신값 보장
   const dragIdRef               = useRef<string | null>(null)
-  const [dragId, setDragId]     = useState<string | null>(null)   // 시각적 표시용
+  const [dragId, setDragId]     = useState<string | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
 
   const years = Array.from(new Set(entries.map(e => e.year))).sort((a, b) => b - a)
@@ -534,7 +526,6 @@ function EventMasterPanel({
     if (!form.event_id.trim() || !form.display_name.trim()) return
     setSubmitting(true)
 
-    // sort_order: 저장 시점의 form.year 기준 max+1 (form open 시점이 아닌 submit 시점에 계산)
     const finalEntry = editMode === 'add'
       ? {
           ...form,
@@ -545,7 +536,7 @@ function EventMasterPanel({
       : form
 
     const { error } = await onAdd(finalEntry)
-    if (error) alert(`저장 오류: ${error}`)
+    if (error) alert(`${lang === 'ko' ? '저장 오류' : 'Save error'}: ${error}`)
     else closeForm()
     setSubmitting(false)
   }
@@ -562,7 +553,7 @@ function EventMasterPanel({
   }
 
   async function handleDrop(targetId: string, year: number) {
-    const fromId = dragIdRef.current   // ref에서 읽어 stale closure 방지
+    const fromId = dragIdRef.current
     if (!fromId || fromId === targetId) return
 
     const sorted = entries
@@ -570,7 +561,7 @@ function EventMasterPanel({
       .sort((a, b) => a.sort_order - b.sort_order)
     const fromIdx = sorted.findIndex(e => e.event_id === fromId)
     const toIdx   = sorted.findIndex(e => e.event_id === targetId)
-    if (fromIdx === -1 || toIdx === -1) return  // 다른 연도의 항목은 무시
+    if (fromIdx === -1 || toIdx === -1) return
 
     const reordered = [...sorted]
     const [moved] = reordered.splice(fromIdx, 1)
@@ -579,37 +570,35 @@ function EventMasterPanel({
 
     setSaving(true)
     const { error } = await onReorder(normalized)
-    if (error) alert(`순서 변경 오류: ${error}`)
+    if (error) alert(`${lang === 'ko' ? '순서 변경 오류' : 'Reorder error'}: ${error}`)
     setSaving(false)
   }
 
   return (
     <div className="bg-brand-surface border border-brand-border rounded-xl overflow-hidden">
-      {/* 헤더 */}
       <div className="px-5 py-4 border-b border-brand-border flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-white">이벤트 마스터 관리</h3>
+          <h3 className="text-sm font-semibold text-white">{t('eventMasterTitle')}</h3>
           <p className="text-xs text-gray-400 mt-0.5">
-            업로드 파일의 <code className="bg-brand-bg px-1 py-0.5 rounded text-brand-accent">event_id</code> 컬럼에 사용 가능한 값 목록
+            {t('eventMasterDesc')}
           </p>
         </div>
         <button
           onClick={showForm ? closeForm : openAdd}
           className="px-3 py-1.5 rounded-lg bg-brand-accent/20 border border-brand-accent/40 text-brand-accent text-xs font-medium hover:bg-brand-accent/30 transition-all"
         >
-          {showForm ? '취소' : '+ 이벤트 추가'}
+          {showForm ? t('cancel') : t('eventMasterAddBtn')}
         </button>
       </div>
 
-      {/* 추가 / 수정 폼 */}
       {showForm && (
         <div className="px-5 py-4 border-b border-brand-border bg-brand-bg/40 space-y-3">
           <p className="text-xs font-medium text-gray-400">
-            {editMode === 'edit' ? `수정 중: ${form.event_id}` : '새 이벤트 등록'}
+            {editMode === 'edit' ? `${t('eventMasterEditing')} ${form.event_id}` : t('eventMasterNew')}
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">event_id *</label>
+              <label className="text-xs text-gray-500 mb-1 block">{t('colEventId')} *</label>
               <input
                 value={form.event_id}
                 readOnly={editMode === 'edit'}
@@ -622,7 +611,7 @@ function EventMasterPanel({
               />
             </div>
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">표시명 *</label>
+              <label className="text-xs text-gray-500 mb-1 block">{t('colDisplayName')} *</label>
               <input
                 value={form.display_name}
                 onChange={e => setForm(p => ({ ...p, display_name: e.target.value }))}
@@ -631,7 +620,7 @@ function EventMasterPanel({
               />
             </div>
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">연도 *</label>
+              <label className="text-xs text-gray-500 mb-1 block">{t('colYear')} *</label>
               <input
                 type="number"
                 value={form.year}
@@ -640,14 +629,14 @@ function EventMasterPanel({
               />
             </div>
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">구분</label>
+              <label className="text-xs text-gray-500 mb-1 block">{t('colScope')}</label>
               <select
                 value={String(form.is_global)}
                 onChange={e => setForm(p => ({ ...p, is_global: e.target.value === 'true' }))}
                 className="w-full px-3 py-2 rounded-lg bg-brand-bg border border-brand-border text-white text-sm focus:outline-none focus:border-brand-accent"
               >
-                <option value="true">글로벌</option>
-                <option value="false">지역</option>
+                <option value="true">{t('scopeGlobal')}</option>
+                <option value="false">{t('scopeRegional')}</option>
               </select>
             </div>
           </div>
@@ -657,33 +646,32 @@ function EventMasterPanel({
               disabled={submitting || !form.event_id.trim() || !form.display_name.trim()}
               className="px-4 py-2 rounded-lg bg-brand-accent text-white text-sm font-medium hover:bg-brand-accent/80 disabled:opacity-50 transition-all"
             >
-              {submitting ? '저장 중...' : editMode === 'edit' ? '수정 저장' : '추가'}
+              {submitting ? t('uploadApplying') : editMode === 'edit' ? t('editSave') : t('save')}
             </button>
             <button onClick={closeForm} className="px-4 py-2 rounded-lg border border-brand-border text-gray-400 text-sm hover:text-white transition-colors">
-              취소
+              {t('cancel')}
             </button>
           </div>
         </div>
       )}
 
-      {/* 목록 */}
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-brand-border">
               <th className="px-2 py-2 w-8"></th>
-              <th className="px-4 py-2 text-left text-gray-400 font-medium text-xs">event_id</th>
-              <th className="px-4 py-2 text-left text-gray-400 font-medium text-xs">표시명</th>
-              <th className="px-4 py-2 text-left text-gray-400 font-medium text-xs">연도</th>
-              <th className="px-4 py-2 text-left text-gray-400 font-medium text-xs">구분</th>
+              <th className="px-4 py-2 text-left text-gray-400 font-medium text-xs">{t('colEventId')}</th>
+              <th className="px-4 py-2 text-left text-gray-400 font-medium text-xs">{t('colDisplayName')}</th>
+              <th className="px-4 py-2 text-left text-gray-400 font-medium text-xs">{t('colYear')}</th>
+              <th className="px-4 py-2 text-left text-gray-400 font-medium text-xs">{t('colScope')}</th>
               <th className="px-4 py-2 w-20"></th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={6} className="px-5 py-6 text-center text-gray-500 text-xs">불러오는 중...</td></tr>
+              <tr><td colSpan={6} className="px-5 py-6 text-center text-gray-500 text-xs">{t('loading')}</td></tr>
             ) : entries.length === 0 ? (
-              <tr><td colSpan={6} className="px-5 py-6 text-center text-gray-500 text-xs">등록된 이벤트가 없습니다</td></tr>
+              <tr><td colSpan={6} className="px-5 py-6 text-center text-gray-500 text-xs">{t('eventMasterEmpty')}</td></tr>
             ) : (
               years.flatMap(year => {
                 const sorted = entries.filter(e => e.year === year).sort((a, b) => a.sort_order - b.sort_order)
@@ -703,7 +691,6 @@ function EventMasterPanel({
                       dragOverId === e.event_id && dragId !== e.event_id && 'border-t-2 border-t-brand-accent bg-brand-accent/5',
                     )}
                   >
-                    {/* 드래그 핸들 */}
                     <td className="px-2 py-2 text-center text-gray-600 group-hover:text-gray-400 transition-colors text-base leading-none">
                       ⠿
                     </td>
@@ -712,8 +699,8 @@ function EventMasterPanel({
                     <td className="px-4 py-2 text-gray-500 text-xs">{e.year}</td>
                     <td className="px-4 py-2 text-xs">
                       {e.is_global
-                        ? <span className="text-green-400">글로벌</span>
-                        : <span className="text-gray-500">지역</span>}
+                        ? <span className="text-green-400">{t('scopeGlobal')}</span>
+                        : <span className="text-gray-500">{t('scopeRegional')}</span>}
                     </td>
                     <td className="px-4 py-2">
                       <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -721,17 +708,20 @@ function EventMasterPanel({
                           onClick={() => openEdit(e)}
                           className="text-xs text-gray-400 hover:text-white transition-colors"
                         >
-                          수정
+                          {t('edit')}
                         </button>
                         <button
                           onClick={async () => {
-                            if (!confirm(`"${e.event_id}" 를 삭제하시겠습니까?\n같은 event_id로 다시 추가할 수 있습니다.`)) return
+                            const msg = lang === 'ko'
+                              ? `"${e.event_id}" 를 삭제하시겠습니까?\n같은 event_id로 다시 추가할 수 있습니다.`
+                              : `Delete "${e.event_id}"?\nYou can re-add it with the same event_id.`
+                            if (!confirm(msg)) return
                             const { error } = await onDelete(e.event_id)
-                            if (error) alert(`삭제 오류: ${error}`)
+                            if (error) alert(`${lang === 'ko' ? '삭제 오류' : 'Delete error'}: ${error}`)
                           }}
                           className="text-xs text-gray-600 hover:text-red-400 transition-colors"
                         >
-                          삭제
+                          {t('delete')}
                         </button>
                       </div>
                     </td>
@@ -748,21 +738,22 @@ function EventMasterPanel({
 
 // ── 업로드 히스토리 테이블 ───────────────────────────────────────
 function UploadHistory({ history }: { history: HistoryEntry[] }) {
+  const { t, lang } = useLang()
   return (
     <div className="bg-brand-surface border border-brand-border rounded-xl overflow-hidden">
       <div className="px-5 py-4 border-b border-brand-border">
-        <h3 className="text-sm font-semibold text-white">업로드 히스토리</h3>
+        <h3 className="text-sm font-semibold text-white">{t('uploadHistoryTitle')}</h3>
       </div>
       {history.length === 0 ? (
-        <p className="text-center py-10 text-gray-500 text-sm">업로드 기록 없음</p>
+        <p className="text-center py-10 text-gray-500 text-sm">{t('uploadHistoryEmpty')}</p>
       ) : (
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-brand-border">
-              <th className="px-5 py-3 text-left text-gray-400 font-medium">파일명</th>
-              <th className="px-5 py-3 text-left text-gray-400 font-medium">업로드 일시</th>
-              <th className="px-5 py-3 text-right text-gray-400 font-medium">행 수</th>
-              <th className="px-5 py-3 text-right text-gray-400 font-medium">상태</th>
+              <th className="px-5 py-3 text-left text-gray-400 font-medium">{t('colFilename')}</th>
+              <th className="px-5 py-3 text-left text-gray-400 font-medium">{t('colUploadedAt')}</th>
+              <th className="px-5 py-3 text-right text-gray-400 font-medium">{t('colRows')}</th>
+              <th className="px-5 py-3 text-right text-gray-400 font-medium">{t('colStatus')}</th>
             </tr>
           </thead>
           <tbody>
@@ -770,20 +761,20 @@ function UploadHistory({ history }: { history: HistoryEntry[] }) {
               <tr key={entry.id} className="border-b border-brand-border last:border-0 hover:bg-white/5">
                 <td className="px-5 py-3 text-white">{entry.filename}</td>
                 <td className="px-5 py-3 text-gray-400 text-xs">
-                  {new Date(entry.uploadedAt).toLocaleString('ko-KR')}
+                  {new Date(entry.uploadedAt).toLocaleString(lang === 'ko' ? 'ko-KR' : 'en-US')}
                 </td>
                 <td className="px-5 py-3 text-right text-gray-400 tabular-nums">
                   {entry.rowCount ?? '—'}
                 </td>
                 <td className="px-5 py-3 text-right">
                   {entry.status === 'success' ? (
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/10 border border-green-500/20 text-green-400">성공</span>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/10 border border-green-500/20 text-green-400">{t('statusSuccess')}</span>
                   ) : (
                     <span
                       className="text-xs px-2 py-0.5 rounded-full bg-red-500/10 border border-red-500/20 text-red-400"
                       title={entry.error}
                     >
-                      실패
+                      {t('statusFail')}
                     </span>
                   )}
                 </td>
@@ -798,21 +789,22 @@ function UploadHistory({ history }: { history: HistoryEntry[] }) {
 
 // ── 전체 초기화 패널 ────────────────────────────────────────────
 function ResetPanel() {
+  const { t, lang } = useLang()
   const [resetting, setResetting] = useState(false)
   const [done, setDone]           = useState(false)
 
   async function handleReset() {
-    if (!window.confirm(
-      '⚠️ 모든 데이터를 삭제합니다.\n\nSupabase에 저장된 이벤트, 뷰어십, 콘텐츠, 코스트리밍 데이터가 모두 삭제됩니다.\n계속하시겠습니까?'
-    )) return
+    const msg = lang === 'ko'
+      ? '⚠️ 모든 데이터를 삭제합니다.\n\nSupabase에 저장된 이벤트, 뷰어십, 콘텐츠, 코스트리밍 데이터가 모두 삭제됩니다.\n계속하시겠습니까?'
+      : '⚠️ This will delete ALL data.\n\nAll events, viewership, contents, and co-streaming data in Supabase will be removed.\nContinue?'
+    if (!window.confirm(msg)) return
 
     setResetting(true)
     try {
       const { error } = await clearAllSupabaseData()
-      if (error) { alert(`초기화 오류: ${error}`); return }
-      clearData()   // localStorage 캐시 삭제
+      if (error) { alert(`${lang === 'ko' ? '초기화 오류' : 'Reset error'}: ${error}`); return }
+      clearData()
       setDone(true)
-      // 2초 후 페이지 새로고침 — 모든 컴포넌트 상태 초기화
       setTimeout(() => window.location.reload(), 2000)
     } finally {
       setResetting(false)
@@ -822,20 +814,18 @@ function ResetPanel() {
   return (
     <div className="border border-red-500/20 bg-red-500/5 rounded-xl p-5 space-y-3">
       <div>
-        <h3 className="text-sm font-semibold text-red-400">데이터 전체 초기화</h3>
-        <p className="text-xs text-gray-500 mt-1">
-          Supabase와 로컬 캐시의 모든 KPI 데이터를 삭제합니다. 삭제 후 새 템플릿을 업로드해 채워넣으세요.
-        </p>
+        <h3 className="text-sm font-semibold text-red-400">{t('resetTitle')}</h3>
+        <p className="text-xs text-gray-500 mt-1">{t('resetDesc')}</p>
       </div>
       {done ? (
-        <p className="text-xs text-green-400 font-medium">✓ 초기화 완료. 이제 새 데이터를 업로드하세요.</p>
+        <p className="text-xs text-green-400 font-medium">{t('resetDone')}</p>
       ) : (
         <button
           onClick={handleReset}
           disabled={resetting}
           className="px-4 py-2 rounded-lg border border-red-500/40 text-red-400 text-sm font-medium hover:bg-red-500/10 transition-all disabled:opacity-50"
         >
-          {resetting ? '삭제 중...' : '모든 데이터 삭제'}
+          {resetting ? t('resetRunning') : t('resetBtn')}
         </button>
       )}
     </div>
@@ -844,6 +834,7 @@ function ResetPanel() {
 
 // ── 메인 페이지 ──────────────────────────────────────────────────
 export default function DataUploadPage() {
+  const { t } = useLang()
   const [unlocked, setUnlocked]   = useState(!UPLOAD_PASSWORD)
   const [activeTab, setActiveTab] = useState<UploadTab>('viewership')
   const [reanalyzeKey, setReanalyzeKey] = useState(0)
@@ -858,15 +849,11 @@ export default function DataUploadPage() {
     <main className="min-h-screen bg-brand-bg text-white">
       <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
 
-        {/* 헤더 */}
         <div>
-          <h1 className="text-2xl font-bold">Data Upload</h1>
-          <p className="text-sm text-gray-400 mt-1">
-            탭별로 데이터를 업로드합니다. 업로드 실패 시 기존 데이터는 보존됩니다.
-          </p>
+          <h1 className="text-2xl font-bold">{t('uploadPageTitle')}</h1>
+          <p className="text-sm text-gray-400 mt-1">{t('uploadPageSubtitle')}</p>
         </div>
 
-        {/* 이벤트 마스터 관리 (탭 공통) */}
         <EventMasterPanel
           entries={entries}
           loading={loading}
@@ -875,7 +862,6 @@ export default function DataUploadPage() {
           onReorder={reorderEntries}
         />
 
-        {/* 탭 */}
         <div className="flex gap-0 border-b border-brand-border">
           {TABS.map(tab => {
             const cfg = TAB_CONFIG[tab]
@@ -893,13 +879,12 @@ export default function DataUploadPage() {
                 )}
               >
                 {cfg.label}
-                {isDisabled && <span className="ml-2 text-xs text-gray-600">(준비 중)</span>}
+                {isDisabled && <span className="ml-2 text-xs text-gray-600">(Coming Soon)</span>}
               </button>
             )
           })}
         </div>
 
-        {/* 탭 콘텐츠 */}
         <UploadPanel
           key={`${activeTab}-${reanalyzeKey}`}
           tab={activeTab}
@@ -907,7 +892,6 @@ export default function DataUploadPage() {
           onReanalyzeReady={() => setReanalyzeKey(k => k + 1)}
         />
 
-        {/* 데이터 초기화 (하단 위험 영역) */}
         <ResetPanel />
 
       </div>
