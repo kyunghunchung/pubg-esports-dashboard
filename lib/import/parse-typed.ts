@@ -13,7 +13,7 @@ import {
   normalizeEventId,
   type EventMasterEntry,
 } from '@/lib/config/event-master'
-import { normalizeViewershipPlatform, normalizeSocialPlatform } from '@/lib/config/constants'
+import { normalizeViewershipPlatform, normalizeSocialPlatform, normalizePlatform } from '@/lib/config/constants'
 
 // ── 유틸 ────────────────────────────────────────────────────────
 
@@ -267,10 +267,11 @@ export function parseCostreamingFile(buffer: ArrayBuffer): TypedParseResult {
       events.push(masterToEvent(master))
     }
 
-    const region   = str(raw['Region / Language'] ?? raw['Region/Language'])
-    const platform = str(raw['Platform'] ?? raw['platform'])
-    const key      = `${master.event_id}::${region}::${platform}`
-    const cur      = agg.get(key) ?? {
+    const region      = str(raw['Region / Language'] ?? raw['Region/Language'])
+    const platformRaw = str(raw['Platform'] ?? raw['platform'])
+    const platform    = (platformRaw ? (normalizePlatform(platformRaw) ?? platformRaw) : '')
+    const key         = `${master.event_id}::${region}::${platform}`
+    const cur         = agg.get(key) ?? {
       master, region, platform,
       streamer_count: 0, peak_view_sum: 0,
       accv_sum: 0, hours_watched_sum: 0, cost_usd: 0,
