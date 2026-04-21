@@ -647,7 +647,7 @@ function EventMasterPanel({
                 type="date"
                 value={form.start_date ?? ''}
                 onChange={e => setForm(p => ({ ...p, start_date: e.target.value }))}
-                className="w-full px-3 py-2 rounded-lg bg-brand-bg border border-brand-border text-white text-sm focus:outline-none focus:border-brand-accent"
+                className="w-full px-3 py-2 rounded-lg bg-brand-bg border border-brand-border text-white text-sm focus:outline-none focus:border-brand-accent [color-scheme:dark]"
               />
             </div>
             <div>
@@ -658,7 +658,7 @@ function EventMasterPanel({
                 type="date"
                 value={form.end_date ?? ''}
                 onChange={e => setForm(p => ({ ...p, end_date: e.target.value }))}
-                className="w-full px-3 py-2 rounded-lg bg-brand-bg border border-brand-border text-white text-sm focus:outline-none focus:border-brand-accent"
+                className="w-full px-3 py-2 rounded-lg bg-brand-bg border border-brand-border text-white text-sm focus:outline-none focus:border-brand-accent [color-scheme:dark]"
               />
             </div>
           </div>
