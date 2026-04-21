@@ -82,6 +82,7 @@ export async function saveToSupabase(data: DashboardData): Promise<{ error: stri
           hours_watched:   v.hours_watched   ?? null,
           unique_viewers:  v.unique_viewers  ?? null,
           hours_broadcast: v.hours_broadcast ?? null,
+          is_official:     v.is_official     ?? null,
           recorded_at:     v.recorded_at,
         }))
       )
@@ -111,9 +112,11 @@ export async function saveToSupabase(data: DashboardData): Promise<{ error: stri
       const { error } = await supabase.from('costreaming_kpis').insert(
         data.costreaming.map(b => ({
           event_id:            toSupabaseId(b.event_id),
+          platform:            b.platform            ?? null,
           channel_count:       b.channel_count       ?? null,
           co_streamer_count:   b.co_streamer_count   ?? null,
           co_streamer_viewers: b.co_streamer_viewers ?? null,
+          hours_watched:       b.hours_watched       ?? null,
           coverage_regions:    b.coverage_regions    ?? null,
           clip_views:          b.clip_views          ?? null,
           region:              b.region              ?? null,
@@ -231,9 +234,11 @@ export async function saveTypedKpisToSupabase(
         const { error } = await supabase.from('costreaming_kpis').insert(
           kpis.costreaming.map(b => ({
             event_id:            toUUID(b.event_id),
+            platform:            b.platform            ?? null,
             channel_count:       b.channel_count       ?? null,
             co_streamer_count:   b.co_streamer_count   ?? null,
             co_streamer_viewers: b.co_streamer_viewers ?? null,
+            hours_watched:       b.hours_watched       ?? null,
             coverage_regions:    b.coverage_regions    ?? null,
             clip_views:          b.clip_views          ?? null,
             region:              b.region              ?? null,

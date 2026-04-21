@@ -128,9 +128,16 @@ export function parseViewershipFile(buffer: ArrayBuffer): TypedParseResult {
     const peakCcv       = num(raw['PCCV'])
     const accv          = num(raw['ACCV'])
     const uniqueViewers = num(raw['Unique Viewers'])
+    const hoursWatched  = num(raw['Hours Watched'] ?? raw['hours_watched'])
     // Stability Ratio 무시 — 시스템이 ACCV ÷ PCCV 자동 계산
 
-    if (!peakCcv && !accv && !uniqueViewers) return  // 빈 데이터 행 스킵
+    // Official 컬럼: 'Y'/'Yes'/'TRUE'/'1' → true, 그 외 → false, 없으면 undefined
+    const officialRaw = str(raw['Official'] ?? raw['official'] ?? raw['Is Official'] ?? '')
+    const is_official = officialRaw
+      ? ['y', 'yes', 'true', '1', 'official'].includes(officialRaw.toLowerCase())
+      : undefined
+
+    if (!peakCcv && !accv && !uniqueViewers && !hoursWatched) return  // 빈 데이터 행 스킵
 
     viewership.push({
       id:             crypto.randomUUID(),
@@ -139,6 +146,8 @@ export function parseViewershipFile(buffer: ArrayBuffer): TypedParseResult {
       peak_ccv:       peakCcv,
       acv:            accv,
       unique_viewers: uniqueViewers,
+      hours_watched:  hoursWatched,
+      is_official:    is_official,
       recorded_at:    new Date(master.year, 11, 31).toISOString(),
     })
   })
@@ -240,16 +249,16 @@ export function parseCostreamingFile(buffer: ArrayBuffer): TypedParseResult {
   type Agg = {
     master: EventMasterEntry
     region: string
+    platform: string
     streamer_count: number
     peak_view_sum: number
     accv_sum: number
-    accv_count: number
+    hours_watched_sum: number
     cost_usd: number
   }
   const agg = new Map<string, Agg>()
 
   rows.forEach((raw, i) => {
-    const rowNum  = i + 2
     const eventId = normalizeEventId(str(raw['event_id']))
     if (!eventId) return
 
@@ -259,23 +268,26 @@ export function parseCostreamingFile(buffer: ArrayBuffer): TypedParseResult {
     }
 
     const region   = str(raw['Region / Language'] ?? raw['Region/Language'])
-    const key      = `${master.event_id}::${region}`
+    const platform = str(raw['Platform'] ?? raw['platform'])
+    const key      = `${master.event_id}::${region}::${platform}`
     const cur      = agg.get(key) ?? {
-      master, region,
+      master, region, platform,
       streamer_count: 0, peak_view_sum: 0,
-      accv_sum: 0, accv_count: 0, cost_usd: 0,
+      accv_sum: 0, hours_watched_sum: 0, cost_usd: 0,
     }
 
-    const peakView = numOrZero(raw['PCCV'])
-    const accv     = numOrZero(raw['ACCV'])
-    const cost     = numOrZero(raw['Cost'])
-    const currency = str(raw['Currency']).toUpperCase()
-    const costUsd  = currency === 'KRW' ? cost / 1300 : currency === 'JPY' ? cost / 155 : cost
+    const peakView     = numOrZero(raw['PCCV'])
+    const accv         = numOrZero(raw['ACCV'])
+    const hoursWatched = numOrZero(raw['Hours Watched'] ?? raw['hours_watched'])
+    const cost         = numOrZero(raw['Cost'])
+    const currency     = str(raw['Currency']).toUpperCase()
+    const costUsd      = currency === 'KRW' ? cost / 1300 : currency === 'JPY' ? cost / 155 : cost
 
     cur.streamer_count++
-    cur.peak_view_sum += peakView
-    if (accv > 0) { cur.accv_sum += accv; cur.accv_count++ }
-    cur.cost_usd += costUsd
+    cur.peak_view_sum     += peakView
+    cur.accv_sum          += accv
+    cur.hours_watched_sum += hoursWatched
+    cur.cost_usd          += costUsd
 
     agg.set(key, cur)
   })
@@ -283,9 +295,11 @@ export function parseCostreamingFile(buffer: ArrayBuffer): TypedParseResult {
   const costreaming: CostreamingKpi[] = Array.from(agg.values()).map(a => ({
     id:                  crypto.randomUUID(),
     event_id:            a.master.event_id,
+    platform:            a.platform || undefined,
     co_streamer_count:   a.streamer_count,
     co_streamer_viewers: a.peak_view_sum,
-    acv:                 a.accv_count > 0 ? Math.round(a.accv_sum / a.accv_count) : undefined,
+    acv:                 a.accv_sum > 0 ? Math.round(a.accv_sum) : undefined,
+    hours_watched:       a.hours_watched_sum > 0 ? Math.round(a.hours_watched_sum) : undefined,
     cost_usd:            Math.round(a.cost_usd),
     region:              a.region || undefined,
     recorded_at:         new Date().toISOString(),

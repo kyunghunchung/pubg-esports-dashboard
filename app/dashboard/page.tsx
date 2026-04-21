@@ -42,6 +42,7 @@ export default function DashboardPage() {
   useInitEventMaster()
   const { lang, t } = useLang()
 
+  const [officialOnly, setOfficialOnly] = useState(false)
   const [selectedIds, setSelectedIds] = useState<string[]>(() => {
     if (typeof window === 'undefined') return []
     try {
@@ -105,8 +106,8 @@ export default function DashboardPage() {
   const toUUID = (eid: string) => data?.events.find(e => e.name === eid)?.id
   const singleUUID = singleEventId ? (toUUID(singleEventId) ?? null) : null
 
-  const total          = singleUUID ? getViewershipTotal(data!, singleUUID) : null
-  const byPlatform     = singleUUID ? getViewershipByPlatform(data!, singleUUID) : []
+  const total          = singleUUID ? getViewershipTotal(data!, singleUUID, officialOnly) : null
+  const byPlatform     = singleUUID ? getViewershipByPlatform(data!, singleUUID, officialOnly) : []
   const viewershipType = singleUUID ? getViewershipDataType(data!, singleUUID) : 'none'
   const isTypeBData    = viewershipType === 'B'
 
@@ -178,17 +179,32 @@ export default function DashboardPage() {
 
         {/* ── 섹션 A: Viewership KPI ── */}
         <section className="space-y-3">
-          <div className="flex items-center gap-3">
-            <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-widest">
-              Viewership
-            </h2>
-            {!isSingleEvent && (
-              <span className="text-xs text-gray-600 bg-brand-surface border border-brand-border px-2 py-0.5 rounded-full">
-                {t('selectSingleHint')}
-              </span>
-            )}
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-3">
+              <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-widest">
+                Viewership
+              </h2>
+              {!isSingleEvent && (
+                <span className="text-xs text-gray-600 bg-brand-surface border border-brand-border px-2 py-0.5 rounded-full">
+                  {t('selectSingleHint')}
+                </span>
+              )}
+            </div>
+            {/* Official Only 토글 */}
+            <button
+              onClick={() => setOfficialOnly(v => !v)}
+              className={cn(
+                'flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all',
+                officialOnly
+                  ? 'bg-brand-accent/20 border-brand-accent/50 text-brand-accent'
+                  : 'bg-brand-surface border-brand-border text-gray-400 hover:text-white'
+              )}
+            >
+              <span className={cn('w-1.5 h-1.5 rounded-full', officialOnly ? 'bg-brand-accent' : 'bg-gray-600')} />
+              {t('officialOnly')}
+            </button>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
             <KpiCard
               label="PCCV"
               sublabel="Peak Concurrent Viewers"
@@ -209,6 +225,12 @@ export default function DashboardPage() {
               sublabel="Unique Viewers"
               value={total?.unique_viewers ?? 0}
               unit={lang === 'ko' ? '명' : ''}
+              disabled={!isSingleEvent}
+            />
+            <KpiCard
+              label={t('hoursWatched')}
+              sublabel="Hours Watched"
+              value={total?.hours_watched ?? 0}
               disabled={!isSingleEvent}
             />
             <KpiCard

@@ -10,7 +10,13 @@ import {
   getEventsByYear,
   getDisplayName,
 } from '@/lib/config/event-master'
-import { getCostreamingAggregated } from '@/lib/store'
+import { getCostreamingAggregated, getCostreamingByRegion, getCostreamingByPlatform } from '@/lib/store'
+import dynamic from 'next/dynamic'
+
+const RatioDonutChart = dynamic(
+  () => import('@/components/charts/RatioDonutChart').then(m => m.RatioDonutChart),
+  { ssr: false },
+)
 import { formatNumber, cn } from '@/lib/utils'
 
 function FilterSelect({
@@ -108,9 +114,15 @@ export default function CostreamingPage() {
     return getCostreamingAggregated(data, filteredUUIDs, filterRegion || undefined)
   }, [data, filteredUUIDs, filterRegion])
 
-  const avgPeakView = coKpi && coKpi.streamer_count > 0
-    ? Math.round(coKpi.peak_view_sum / coKpi.streamer_count)
-    : null
+  const regionChartData = useMemo(() => {
+    if (!data) return []
+    return getCostreamingByRegion(data, filteredUUIDs).map(r => ({ name: r.region, value: r.viewers }))
+  }, [data, filteredUUIDs])
+
+  const platformChartData = useMemo(() => {
+    if (!data) return []
+    return getCostreamingByPlatform(data, filteredUUIDs).map(r => ({ name: r.platform, value: r.viewers }))
+  }, [data, filteredUUIDs])
 
   const roi = coKpi && coKpi.total_cost_usd > 0 && coKpi.peak_view_sum > 0
     ? coKpi.total_cost_usd / coKpi.peak_view_sum
@@ -207,13 +219,12 @@ export default function CostreamingPage() {
               label="ACCV"
               value={coKpi?.acv && coKpi.acv > 0 ? Math.round(coKpi.acv) : null}
               unit={unit}
-              caption="Average Concurrent Viewers"
+              caption={t('coAccvCaption')}
             />
             <StatCard
-              label={t('coAvgPeakView')}
-              value={avgPeakView}
-              unit={unit}
-              caption={t('coAvgPeakViewCaption')}
+              label={t('coHoursWatched')}
+              value={coKpi?.hours_watched && coKpi.hours_watched > 0 ? coKpi.hours_watched : null}
+              caption={t('coHoursWatchedCaption')}
             />
           </div>
         </div>
@@ -230,6 +241,28 @@ export default function CostreamingPage() {
               disabled={roi == null}
             />
           </div>
+        </div>
+
+        {/* 비주얼라이제이션 차트 */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <section className="bg-brand-surface border border-brand-border rounded-xl p-5">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">
+              {t('coLanguageRatio')}
+            </h3>
+            <RatioDonutChart
+              data={regionChartData}
+              emptyText={t('coNoChartData')}
+            />
+          </section>
+          <section className="bg-brand-surface border border-brand-border rounded-xl p-5">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">
+              {t('coPlatformRatio')}
+            </h3>
+            <RatioDonutChart
+              data={platformChartData}
+              emptyText={t('coNoChartData')}
+            />
+          </section>
         </div>
 
         {/* 상세 테이블 */}

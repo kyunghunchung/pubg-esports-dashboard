@@ -32,6 +32,7 @@ export interface ViewershipKpi {
   hours_watched?: number
   unique_viewers?: number
   hours_broadcast?: number
+  is_official?: boolean
   recorded_at: string
 }
 
@@ -53,13 +54,15 @@ export interface SocialKpi {
 export interface CostreamingKpi {
   id: string
   event_id: string
+  platform?: string             // 플랫폼 (집계 단위)
   channel_count?: number
   co_streamer_count?: number
   co_streamer_viewers?: number  // Peak View 합산
+  hours_watched?: number        // 시청 시간 합산
   coverage_regions?: number
   clip_views?: number
   region?: string               // 지역/언어 필터용
-  acv?: number                  // Average Concurrent Viewers
+  acv?: number                  // ACCV 합산 (per-channel sum)
   cost_usd?: number             // 코스트리밍 집행 비용 (ROI 계산용)
   recorded_at: string
 }

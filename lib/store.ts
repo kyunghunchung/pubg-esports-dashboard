@@ -30,27 +30,38 @@ export function clearData(): void {
 /**
  * Type B (플랫폼별) 데이터가 있으면 합산 집계값을 반환 (v6 우선순위).
  * Type B 없고 Type A ('total') 만 있으면 Type A 행을 직접 반환.
+ * officialOnly=true 이면 is_official===true 행만 집계.
  */
-export function getViewershipTotal(data: DashboardData, eventId: string): ViewershipKpi | null {
+export function getViewershipTotal(
+  data: DashboardData,
+  eventId: string,
+  officialOnly = false,
+): ViewershipKpi | null {
   // Type B (플랫폼별) 우선 — 있으면 합산
-  const perPlatform = data.viewership.filter(v => v.event_id === eventId && v.platform !== 'total')
+  let perPlatform = data.viewership.filter(v => v.event_id === eventId && v.platform !== 'total')
+  if (officialOnly) perPlatform = perPlatform.filter(v => v.is_official === true)
+
   if (perPlatform.length > 0) {
     const peak_ccv       = perPlatform.reduce((s, v) => s + (v.peak_ccv ?? 0), 0) || undefined
     const acvTotal       = perPlatform.reduce((s, v) => s + (v.acv ?? 0), 0)
     const acv            = acvTotal > 0 ? acvTotal : undefined
     const unique_viewers = perPlatform.reduce((s, v) => s + (v.unique_viewers ?? 0), 0) || undefined
+    const hwTotal        = perPlatform.reduce((s, v) => s + (v.hours_watched ?? 0), 0)
+    const hours_watched  = hwTotal > 0 ? hwTotal : undefined
     return {
       id: 'aggregate', event_id: eventId,
       platform: 'total' as ViewershipKpi['platform'],
-      peak_ccv, acv, unique_viewers,
+      peak_ccv, acv, unique_viewers, hours_watched,
       recorded_at: perPlatform[0].recorded_at,
     }
   }
 
-  // Type A (통합) 폴백 — 'total' 행 직접 사용
-  return data.viewership
+  // Type A (통합) 폴백 — 'total' 행 직접 사용 (officialOnly 필터 적용)
+  const typeARows = data.viewership
     .filter(v => v.event_id === eventId && v.platform === 'total')
-    .sort((a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime())[0] ?? null
+    .filter(v => !officialOnly || v.is_official === true)
+    .sort((a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime())
+  return typeARows[0] ?? null
 }
 
 /**
@@ -66,8 +77,16 @@ export function getViewershipDataType(data: DashboardData, eventId: string): 'A'
   return 'none'
 }
 
-export function getViewershipByPlatform(data: DashboardData, eventId: string): ViewershipKpi[] {
-  return data.viewership.filter(v => v.event_id === eventId && v.platform !== 'total')
+export function getViewershipByPlatform(
+  data: DashboardData,
+  eventId: string,
+  officialOnly = false,
+): ViewershipKpi[] {
+  return data.viewership.filter(v =>
+    v.event_id === eventId &&
+    v.platform !== 'total' &&
+    (!officialOnly || v.is_official === true)
+  )
 }
 
 export function getSocialByPlatform(data: DashboardData, eventId: string): SocialKpi[] {
@@ -191,8 +210,38 @@ export function getCostreamingAggregated(data: DashboardData, eventIds: string[]
   return {
     streamer_count:  rows.reduce((sum, r) => sum + (r.co_streamer_count ?? 0), 0),
     peak_view_sum:   rows.reduce((sum, r) => sum + (r.co_streamer_viewers ?? 0), 0),
+    hours_watched:   rows.reduce((sum, r) => sum + (r.hours_watched ?? 0), 0),
     total_cost_usd:  rows.reduce((sum, r) => sum + (r.cost_usd ?? 0), 0),
-    acv:             rows.length > 0 ? rows.reduce((sum, r) => sum + (r.acv ?? 0), 0) / rows.length : 0,
+    // ACCV: 채널별 ACCV 합산 (평균이 아닌 총합)
+    acv:             rows.reduce((sum, r) => sum + (r.acv ?? 0), 0),
     rows,
   }
+}
+
+/** 코스트리밍 언어(지역)별 집계 */
+export function getCostreamingByRegion(data: DashboardData, eventIds: string[]) {
+  const rows = data.costreaming.filter(b => eventIds.includes(b.event_id) && b.region)
+  const map = new Map<string, { region: string; viewers: number; streamer_count: number }>()
+  for (const r of rows) {
+    const key = r.region!
+    const cur = map.get(key) ?? { region: key, viewers: 0, streamer_count: 0 }
+    cur.viewers       += r.co_streamer_viewers ?? 0
+    cur.streamer_count += r.co_streamer_count ?? 0
+    map.set(key, cur)
+  }
+  return Array.from(map.values()).sort((a, b) => b.viewers - a.viewers)
+}
+
+/** 코스트리밍 플랫폼별 집계 */
+export function getCostreamingByPlatform(data: DashboardData, eventIds: string[]) {
+  const rows = data.costreaming.filter(b => eventIds.includes(b.event_id) && b.platform)
+  const map = new Map<string, { platform: string; viewers: number; streamer_count: number }>()
+  for (const r of rows) {
+    const key = r.platform!
+    const cur = map.get(key) ?? { platform: key, viewers: 0, streamer_count: 0 }
+    cur.viewers       += r.co_streamer_viewers ?? 0
+    cur.streamer_count += r.co_streamer_count ?? 0
+    map.set(key, cur)
+  }
+  return Array.from(map.values()).sort((a, b) => b.viewers - a.viewers)
 }
