@@ -4,30 +4,36 @@
 // 추가/변경 시 이 파일만 수정하면 파서·템플릿·UI에 자동 반영됩니다.
 // ============================================================
 
-// ── 뷰어십 플랫폼 ────────────────────────────────────────────
+// ── 통합 플랫폼 목록 ─────────────────────────────────────────
+// Viewership / Contents / Co-streaming 전체 공통
 // key: DB 저장값 (소문자)  |  label: 화면 표시·엑셀 입력값
+export const PLATFORMS = {
+  chzzk:       'CHZZK',
+  facebook:    'Facebook',
+  kick:        'Kick',
+  nimotv:      'Nimo TV',
+  soop_global: 'SOOP (Global)',
+  soop_korea:  'SOOP Korea',
+  steam:       'Steam',
+  tiktok:      'TikTok',
+  twitch:      'Twitch',
+  youtube:     'YouTube',
+  trovo:       'Trovo',
+} as const
+
+export type PlatformId = keyof typeof PLATFORMS
+
+// ── 뷰어십 플랫폼 (PLATFORMS + total 합산 행) ────────────────
 export const VIEWERSHIP_PLATFORMS = {
-  twitch:  'Twitch',
-  youtube: 'YouTube',
-  sooptv:  'SoopTV',
-  chzzk:   '치지직',
-  kick:    'Kick',
-  nimotv:  'NimoTV',
-  total:   '전체(합산)',
+  ...PLATFORMS,
+  total: 'Total',
 } as const
 
 export type ViewershipPlatformId = keyof typeof VIEWERSHIP_PLATFORMS
 
-// ── 소셜 플랫폼 ──────────────────────────────────────────────
-export const SOCIAL_PLATFORMS = {
-  x:         'X (Twitter)',
-  instagram: 'Instagram',
-  facebook:  'Facebook',
-  tiktok:    'TikTok',
-  youtube:   'YouTube',
-} as const
-
-export type SocialPlatformId = keyof typeof SOCIAL_PLATFORMS
+// ── 소셜(콘텐츠) 플랫폼 — 통합 목록과 동일 ──────────────────
+export const SOCIAL_PLATFORMS = PLATFORMS
+export type SocialPlatformId = PlatformId
 
 // ── 글로벌 대회 유형 ─────────────────────────────────────────
 // 이 목록에 있는 유형은 글로벌 집계에 포함됩니다.
@@ -77,30 +83,41 @@ export function isGlobalEvent(type: EventTypeId): boolean {
  * 입력값(표시명 or ID)을 정규화된 플랫폼 ID로 변환.
  * 대소문자·공백 무시. 매칭 실패 시 null 반환.
  */
-// 구 명칭 → 현재 플랫폼 ID 별칭 (Afreeca → SoopTV 등 리브랜딩 대응)
-const VIEWERSHIP_PLATFORM_ALIASES: Record<string, ViewershipPlatformId> = {
-  afreeca:      'sooptv',
-  afreecatv:    'sooptv',
-  'afreeca tv': 'sooptv',
-  soop:         'sooptv',
-  nimo:         'nimotv',
+// 구 명칭 → 현재 플랫폼 ID 별칭
+const PLATFORM_ALIASES: Record<string, PlatformId> = {
+  // SOOP 리브랜딩 (AfreecaTV → SOOP Korea)
+  afreeca:       'soop_korea',
+  afreecatv:     'soop_korea',
+  'afreeca tv':  'soop_korea',
+  sooptv:        'soop_korea',
+  soop:          'soop_korea',
+  'soop tv':     'soop_korea',
+  // Nimo TV 별칭
+  nimo:          'nimotv',
+  'nimo tv':     'nimotv',
+  // CHZZK 한글 표기
+  '치지직':        'chzzk',
+  // TikTok 대소문자 변형
+  'tik tok':     'tiktok',
 }
 
+/** 플랫폼 입력값 → 정규화된 PlatformId. 매칭 실패 시 null 반환 */
+export function normalizePlatform(input: string): PlatformId | null {
+  const lower = input.toLowerCase().trim()
+  if (lower in PLATFORMS) return lower as PlatformId
+  const byLabel = Object.entries(PLATFORMS).find(([, label]) => label.toLowerCase() === lower)
+  if (byLabel) return byLabel[0] as PlatformId
+  return PLATFORM_ALIASES[lower] ?? null
+}
+
+/** Viewership용: 'total' 포함 */
 export function normalizeViewershipPlatform(input: string): ViewershipPlatformId | null {
   const lower = input.toLowerCase().trim()
-  if (lower in VIEWERSHIP_PLATFORMS) return lower as ViewershipPlatformId
-  const found = Object.entries(VIEWERSHIP_PLATFORMS).find(
-    ([, label]) => label.toLowerCase() === lower
-  )
-  if (found) return found[0] as ViewershipPlatformId
-  return VIEWERSHIP_PLATFORM_ALIASES[lower] ?? null
+  if (lower === 'total') return 'total'
+  return normalizePlatform(input)
 }
 
+/** Contents(소셜)용: PLATFORMS 통합 목록 사용 */
 export function normalizeSocialPlatform(input: string): SocialPlatformId | null {
-  const lower = input.toLowerCase().trim()
-  if (lower in SOCIAL_PLATFORMS) return lower as SocialPlatformId
-  const found = Object.entries(SOCIAL_PLATFORMS).find(
-    ([, label]) => label.toLowerCase() === lower
-  )
-  return found ? (found[0] as SocialPlatformId) : null
+  return normalizePlatform(input)
 }

@@ -119,7 +119,7 @@ export function parseViewershipFile(buffer: ArrayBuffer): TypedParseResult {
     } else {
       const p = normalizeViewershipPlatform(plRaw)
       if (!p) {
-        errors.push({ row: rowNum, message: `알 수 없는 플랫폼: "${plRaw}" (Twitch/YouTube/SoopTV/Chzzk/Kick/NimoTV/Afreeca 중 하나)` })
+        errors.push({ row: rowNum, message: `알 수 없는 플랫폼: "${plRaw}" (CHZZK/Facebook/Kick/Nimo TV/SOOP (Global)/SOOP Korea/Steam/TikTok/Twitch/YouTube/Trovo 중 하나)` })
         return
       }
       platform = p

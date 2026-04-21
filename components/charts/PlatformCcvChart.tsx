@@ -14,10 +14,18 @@ interface Props {
 }
 
 const COLORS: Record<string, string> = {
-  twitch:  '#9146FF',
-  youtube: '#FF0000',
-  afreeca: '#00B4D8',
-  total:   '#3B82F6',
+  chzzk:       '#02E895',
+  facebook:    '#1877F2',
+  kick:        '#53FC18',
+  nimotv:      '#FF4500',
+  soop_global: '#00D2B0',
+  soop_korea:  '#00B4D8',
+  steam:       '#66C0F4',
+  tiktok:      '#FF0050',
+  twitch:      '#9146FF',
+  youtube:     '#FF0000',
+  trovo:       '#1DBF73',
+  total:       '#3B82F6',
 }
 
 export function PlatformCcvChart({ data }: Props) {

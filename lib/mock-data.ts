@@ -15,30 +15,30 @@ export const MOCK_VIEWERSHIP: Record<string, ViewershipKpi[]> = {
     { id: 'v1', event_id: '11111111-0000-0000-0000-000000000001', platform: 'total',   peak_ccv: 423000, acv: 187000, hours_watched: 3712000, unique_viewers: 1840000, hours_broadcast: 90,  recorded_at: '2025-06-29T12:00:00Z' },
     { id: 'v2', event_id: '11111111-0000-0000-0000-000000000001', platform: 'twitch',  peak_ccv: 210000, acv: 95000,  hours_watched: 1820000, unique_viewers: 950000,  hours_broadcast: 90,  recorded_at: '2025-06-29T12:00:00Z' },
     { id: 'v3', event_id: '11111111-0000-0000-0000-000000000001', platform: 'youtube', peak_ccv: 150000, acv: 68000,  hours_watched: 1380000, unique_viewers: 720000,  hours_broadcast: 90,  recorded_at: '2025-06-29T12:00:00Z' },
-    { id: 'v4', event_id: '11111111-0000-0000-0000-000000000001', platform: 'sooptv', peak_ccv: 63000,  acv: 24000,  hours_watched: 512000,  unique_viewers: 170000,  hours_broadcast: 90,  recorded_at: '2025-06-29T12:00:00Z' },
+    { id: 'v4', event_id: '11111111-0000-0000-0000-000000000001', platform: 'soop_korea', peak_ccv: 63000,  acv: 24000,  hours_watched: 512000,  unique_viewers: 170000,  hours_broadcast: 90,  recorded_at: '2025-06-29T12:00:00Z' },
   ],
   '11111111-0000-0000-0000-000000000003': [
     { id: 'v5', event_id: '11111111-0000-0000-0000-000000000003', platform: 'total',   peak_ccv: 318000, acv: 142000, hours_watched: 2240000, unique_viewers: 1120000, hours_broadcast: 42,  recorded_at: '2025-03-16T12:00:00Z' },
     { id: 'v6', event_id: '11111111-0000-0000-0000-000000000003', platform: 'twitch',  peak_ccv: 168000, acv: 78000,  hours_watched: 1180000, unique_viewers: 620000,  hours_broadcast: 42,  recorded_at: '2025-03-16T12:00:00Z' },
     { id: 'v7', event_id: '11111111-0000-0000-0000-000000000003', platform: 'youtube', peak_ccv: 102000, acv: 46000,  hours_watched: 820000,  unique_viewers: 380000,  hours_broadcast: 42,  recorded_at: '2025-03-16T12:00:00Z' },
-    { id: 'v8', event_id: '11111111-0000-0000-0000-000000000003', platform: 'sooptv', peak_ccv: 48000,  acv: 18000,  hours_watched: 240000,  unique_viewers: 120000,  hours_broadcast: 42,  recorded_at: '2025-03-16T12:00:00Z' },
+    { id: 'v8', event_id: '11111111-0000-0000-0000-000000000003', platform: 'soop_korea', peak_ccv: 48000,  acv: 18000,  hours_watched: 240000,  unique_viewers: 120000,  hours_broadcast: 42,  recorded_at: '2025-03-16T12:00:00Z' },
   ],
 }
 
 export const MOCK_SOCIAL: Record<string, SocialKpi[]> = {
   '11111111-0000-0000-0000-000000000001': [
-    { id: 's1', event_id: '11111111-0000-0000-0000-000000000001', platform: 'x',         impressions: 3200000, engagements: 148000, video_views: 980000,  follower_delta: 12400, recorded_at: '2025-06-29T12:00:00Z' },
-    { id: 's2', event_id: '11111111-0000-0000-0000-000000000001', platform: 'instagram',  impressions: 2800000, engagements: 215000, video_views: 740000,  follower_delta: 18900, recorded_at: '2025-06-29T12:00:00Z' },
-    { id: 's3', event_id: '11111111-0000-0000-0000-000000000001', platform: 'youtube',    impressions: 2100000, engagements: 94000,  video_views: 1820000, follower_delta: 8700,  recorded_at: '2025-06-29T12:00:00Z' },
-    { id: 's4', event_id: '11111111-0000-0000-0000-000000000001', platform: 'facebook',   impressions: 1400000, engagements: 62000,  video_views: 430000,  follower_delta: 3200,  recorded_at: '2025-06-29T12:00:00Z' },
-    { id: 's5', event_id: '11111111-0000-0000-0000-000000000001', platform: 'tiktok',     impressions: 1900000, engagements: 174000, video_views: 2100000, follower_delta: 22100, recorded_at: '2025-06-29T12:00:00Z' },
+    { id: 's1', event_id: '11111111-0000-0000-0000-000000000001', platform: 'youtube',     impressions: 3200000, engagements: 148000, video_views: 980000,  follower_delta: 12400, recorded_at: '2025-06-29T12:00:00Z' },
+    { id: 's2', event_id: '11111111-0000-0000-0000-000000000001', platform: 'tiktok',      impressions: 2800000, engagements: 215000, video_views: 740000,  follower_delta: 18900, recorded_at: '2025-06-29T12:00:00Z' },
+    { id: 's3', event_id: '11111111-0000-0000-0000-000000000001', platform: 'facebook',    impressions: 2100000, engagements: 94000,  video_views: 1820000, follower_delta: 8700,  recorded_at: '2025-06-29T12:00:00Z' },
+    { id: 's4', event_id: '11111111-0000-0000-0000-000000000001', platform: 'soop_korea',  impressions: 1400000, engagements: 62000,  video_views: 430000,  follower_delta: 3200,  recorded_at: '2025-06-29T12:00:00Z' },
+    { id: 's5', event_id: '11111111-0000-0000-0000-000000000001', platform: 'chzzk',       impressions: 1900000, engagements: 174000, video_views: 2100000, follower_delta: 22100, recorded_at: '2025-06-29T12:00:00Z' },
   ],
   '11111111-0000-0000-0000-000000000003': [
-    { id: 's6', event_id: '11111111-0000-0000-0000-000000000003', platform: 'x',         impressions: 1800000, engagements: 92000,  video_views: 540000,  follower_delta: 7200,  recorded_at: '2025-03-16T12:00:00Z' },
-    { id: 's7', event_id: '11111111-0000-0000-0000-000000000003', platform: 'instagram',  impressions: 1500000, engagements: 134000, video_views: 420000,  follower_delta: 11200, recorded_at: '2025-03-16T12:00:00Z' },
-    { id: 's8', event_id: '11111111-0000-0000-0000-000000000003', platform: 'youtube',    impressions: 1200000, engagements: 58000,  video_views: 980000,  follower_delta: 5100,  recorded_at: '2025-03-16T12:00:00Z' },
-    { id: 's9', event_id: '11111111-0000-0000-0000-000000000003', platform: 'facebook',   impressions: 820000,  engagements: 38000,  video_views: 240000,  follower_delta: 1800,  recorded_at: '2025-03-16T12:00:00Z' },
-    { id: 's10',event_id: '11111111-0000-0000-0000-000000000003', platform: 'tiktok',     impressions: 1100000, engagements: 98000,  video_views: 1240000, follower_delta: 14300, recorded_at: '2025-03-16T12:00:00Z' },
+    { id: 's6', event_id: '11111111-0000-0000-0000-000000000003', platform: 'youtube',     impressions: 1800000, engagements: 92000,  video_views: 540000,  follower_delta: 7200,  recorded_at: '2025-03-16T12:00:00Z' },
+    { id: 's7', event_id: '11111111-0000-0000-0000-000000000003', platform: 'tiktok',      impressions: 1500000, engagements: 134000, video_views: 420000,  follower_delta: 11200, recorded_at: '2025-03-16T12:00:00Z' },
+    { id: 's8', event_id: '11111111-0000-0000-0000-000000000003', platform: 'facebook',    impressions: 1200000, engagements: 58000,  video_views: 980000,  follower_delta: 5100,  recorded_at: '2025-03-16T12:00:00Z' },
+    { id: 's9', event_id: '11111111-0000-0000-0000-000000000003', platform: 'soop_korea',  impressions: 820000,  engagements: 38000,  video_views: 240000,  follower_delta: 1800,  recorded_at: '2025-03-16T12:00:00Z' },
+    { id: 's10',event_id: '11111111-0000-0000-0000-000000000003', platform: 'chzzk',       impressions: 1100000, engagements: 98000,  video_views: 1240000, follower_delta: 14300, recorded_at: '2025-03-16T12:00:00Z' },
   ],
 }
 

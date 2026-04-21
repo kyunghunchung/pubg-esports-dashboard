@@ -2,10 +2,12 @@ export type EventStatus = 'upcoming' | 'live' | 'completed'
 // 글로벌: PGS | PNC | PGC | EWC | PMI(Players Masters Invitational)  /  지역: Regional
 export type EventType = 'PGS' | 'PNC' | 'PGC' | 'EWC' | 'PMI' | 'ENC' | 'Regional'
 export type KpiCategory = 'viewership' | 'social' | 'costreaming'
-// 소셜 플랫폼 (lib/config/constants.ts SOCIAL_PLATFORMS와 동기화)
-export type SocialPlatform = 'x' | 'instagram' | 'facebook' | 'tiktok' | 'youtube'
-// 뷰어십 플랫폼 (lib/config/constants.ts VIEWERSHIP_PLATFORMS와 동기화)
-export type ViewershipPlatform = 'twitch' | 'youtube' | 'sooptv' | 'chzzk' | 'kick' | 'nimotv' | 'total'
+// 통합 플랫폼 (lib/config/constants.ts PLATFORMS와 동기화)
+export type Platform = 'chzzk' | 'facebook' | 'kick' | 'nimotv' | 'soop_global' | 'soop_korea' | 'steam' | 'tiktok' | 'twitch' | 'youtube' | 'trovo'
+// 뷰어십은 합산 행을 위해 'total' 추가
+export type ViewershipPlatform = Platform | 'total'
+// 소셜(콘텐츠)은 통합 플랫폼과 동일
+export type SocialPlatform = Platform
 export type ReportType = 'event_result' | 'weekly' | 'annual'
 
 export interface Event {
