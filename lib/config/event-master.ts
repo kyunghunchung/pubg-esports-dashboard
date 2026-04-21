@@ -14,6 +14,8 @@ export interface EventMasterEntry {
   year:         number   // 개최 연도
   is_global:    boolean  // true → /dashboard 이벤트 버튼에 표시
   sort_order:   number   // 같은 연도 내 버튼 정렬 순서
+  start_date?:  string   // 대회 시작일 ISO: 'YYYY-MM-DD' (캘린더 차트용)
+  end_date?:    string   // 대회 종료일 ISO: 'YYYY-MM-DD' (캘린더 차트용)
 }
 
 export const EVENT_MASTER: EventMasterEntry[] = [

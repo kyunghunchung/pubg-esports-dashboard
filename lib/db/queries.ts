@@ -307,7 +307,7 @@ export async function loadEventMaster(): Promise<EventMasterEntry[]> {
   try {
     const { data, error } = await supabase
       .from('event_master')
-      .select('event_id, display_name, year, is_global, sort_order')
+      .select('event_id, display_name, year, is_global, sort_order, start_date, end_date')
       .order('year', { ascending: false })
       .order('sort_order', { ascending: true })
     if (error || !data?.length) return EVENT_MASTER
@@ -322,7 +322,15 @@ export async function upsertEventMasterEntry(entry: EventMasterEntry): Promise<{
   const { error } = await supabase
     .from('event_master')
     .upsert(
-      { event_id: entry.event_id, display_name: entry.display_name, year: entry.year, is_global: entry.is_global, sort_order: entry.sort_order },
+      {
+        event_id:     entry.event_id,
+        display_name: entry.display_name,
+        year:         entry.year,
+        is_global:    entry.is_global,
+        sort_order:   entry.sort_order,
+        start_date:   entry.start_date || null,
+        end_date:     entry.end_date   || null,
+      },
       { onConflict: 'event_id' }
     )
   return { error: error?.message ?? null }

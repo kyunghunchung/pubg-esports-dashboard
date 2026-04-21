@@ -1,4 +1,5 @@
 import type { Event, ViewershipKpi, SocialKpi, CostreamingKpi } from '@/types'
+import type { EventMasterEntry } from '@/lib/config/event-master'
 
 export interface DashboardData {
   events:      Event[]
@@ -244,4 +245,137 @@ export function getCostreamingByPlatform(data: DashboardData, eventIds: string[]
     map.set(key, cur)
   }
   return Array.from(map.values()).sort((a, b) => b.viewers - a.viewers)
+}
+
+// ── Content Calendar (연간 주차별 콘텐츠 + 이벤트 밴드 + 뷰어십) ─────────────
+
+export interface ContentCalendarWeek {
+  wk:        string        // 'W01' ~ 'W53'
+  weekStart: string        // 'YYYY-MM-DD' (월요일)
+  weekEnd:   string        // 'YYYY-MM-DD' (일요일)
+  content:   number
+  pccv:      number | null
+}
+
+export interface ContentCalendarBand {
+  event_id:     string
+  display_name: string
+  start_date:   string
+  end_date:     string
+  startWk:      string
+  endWk:        string
+  pccv:         number | null
+  color:        string
+}
+
+export interface ContentCalendarData {
+  weeks:  ContentCalendarWeek[]
+  events: ContentCalendarBand[]
+}
+
+const BAND_COLORS = [
+  '#3B82F6', '#8B5CF6', '#10B981', '#F59E0B',
+  '#EF4444', '#EC4899', '#06B6D4', '#F97316',
+]
+
+function isoWeekOf(dateStr: string): { isoYear: number; week: number; weekStart: string } | null {
+  if (!dateStr) return null
+  const ymd = dateStr.slice(0, 10)
+  const [y, m, d] = ymd.split('-').map(Number)
+  if (!y || !m || !d) return null
+  const dayOfWeek = new Date(Date.UTC(y, m - 1, d)).getUTCDay()
+  const monOffset = (dayOfWeek + 6) % 7
+  const monday = new Date(Date.UTC(y, m - 1, d - monOffset))
+  const thursday = new Date(monday); thursday.setUTCDate(monday.getUTCDate() + 3)
+  const isoYear = thursday.getUTCFullYear()
+  const jan4 = new Date(Date.UTC(isoYear, 0, 4))
+  const week = 1 + Math.round(
+    ((thursday.getTime() - jan4.getTime()) / 86400000 - 3 + (jan4.getUTCDay() + 6) % 7) / 7
+  )
+  return { isoYear, week, weekStart: monday.toISOString().slice(0, 10) }
+}
+
+function allWeeksOfYear(year: number): ContentCalendarWeek[] {
+  const jan4 = new Date(Date.UTC(year, 0, 4))
+  const firstMonday = new Date(jan4)
+  firstMonday.setUTCDate(4 - (jan4.getUTCDay() + 6) % 7)
+  const result: ContentCalendarWeek[] = []
+  const cur = new Date(firstMonday)
+  while (true) {
+    const info = isoWeekOf(cur.toISOString().slice(0, 10))
+    if (!info || info.isoYear > year) break
+    if (info.isoYear === year) {
+      const sun = new Date(cur); sun.setUTCDate(cur.getUTCDate() + 6)
+      result.push({
+        wk:        `W${String(info.week).padStart(2, '0')}`,
+        weekStart: cur.toISOString().slice(0, 10),
+        weekEnd:   sun.toISOString().slice(0, 10),
+        content:   0,
+        pccv:      null,
+      })
+    }
+    cur.setUTCDate(cur.getUTCDate() + 7)
+  }
+  return result
+}
+
+export function getContentCalendar(
+  data: DashboardData,
+  year: number,
+  masterEntries: EventMasterEntry[],
+): ContentCalendarData {
+  const weeks = allWeeksOfYear(year)
+  const wkMap = new Map(weeks.map((w, i) => [w.wk, i]))
+
+  // 콘텐츠 주차별 집계
+  for (const s of data.social) {
+    const info = isoWeekOf(s.recorded_at)
+    if (!info || info.isoYear !== year) continue
+    const wk = `W${String(info.week).padStart(2, '0')}`
+    const idx = wkMap.get(wk)
+    if (idx !== undefined) weeks[idx].content += s.content_count ?? 0
+  }
+
+  // 이벤트별 최대 PCCV (total 행 우선, 없으면 최대값)
+  const pccvByEventId = new Map<string, number>()
+  for (const v of data.viewership) {
+    if (!v.peak_ccv) continue
+    const eid = v.event_id
+    if (v.platform === 'total') {
+      pccvByEventId.set(eid, Math.max(pccvByEventId.get(eid) ?? 0, v.peak_ccv))
+    }
+  }
+  for (const v of data.viewership) {
+    if (!v.peak_ccv || pccvByEventId.has(v.event_id)) continue
+    pccvByEventId.set(v.event_id, Math.max(pccvByEventId.get(v.event_id) ?? 0, v.peak_ccv))
+  }
+
+  // 이벤트 밴드 (날짜 있는 것만)
+  const bands: ContentCalendarBand[] = []
+  const yearEntries = masterEntries.filter(e => e.year === year && e.start_date && e.end_date)
+  yearEntries.forEach((entry, i) => {
+    const s = isoWeekOf(entry.start_date!)
+    const e = isoWeekOf(entry.end_date!)
+    if (!s || !e) return
+    const startWk = `W${String(s.week).padStart(2, '0')}`
+    const endWk   = `W${String(e.week).padStart(2, '0')}`
+
+    // data.events는 event_id(=name)로 연결
+    const ev = data.events.find(ev => ev.name === entry.event_id)
+    const pccv = ev ? (pccvByEventId.get(ev.id) ?? null) : null
+
+    // PCCV를 이벤트 중간 주차에 배치
+    if (pccv != null) {
+      const si = wkMap.get(startWk) ?? 0
+      const ei = wkMap.get(endWk) ?? si
+      const mid = weeks[Math.round((si + ei) / 2)]
+      if (mid) mid.pccv = pccv
+    }
+
+    bands.push({ event_id: entry.event_id, display_name: entry.display_name,
+      start_date: entry.start_date!, end_date: entry.end_date!,
+      startWk, endWk, pccv, color: BAND_COLORS[i % BAND_COLORS.length] })
+  })
+
+  return { weeks, events: bands }
 }

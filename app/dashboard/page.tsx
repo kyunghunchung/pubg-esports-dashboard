@@ -10,6 +10,7 @@ import {
   getSocialAggregatedByPlatform,
   getSocialTrend,
   hasSocialDateData,
+  getContentCalendar,
 } from '@/lib/store'
 import { useDashboardData } from '@/lib/hooks/useDashboardData'
 import { useInitEventMaster } from '@/lib/hooks/useInitEventMaster'
@@ -36,10 +37,14 @@ const ContentsTrendChart = dynamic(
   () => import('@/components/charts/ContentsTrendChart').then(m => m.ContentsTrendChart),
   { ssr: false },
 )
+const ContentCalendarChart = dynamic(
+  () => import('@/components/charts/ContentCalendarChart').then(m => m.ContentCalendarChart),
+  { ssr: false },
+)
 
 export default function DashboardPage() {
   const { data, loading, fetchError, refetch } = useDashboardData()
-  useInitEventMaster()
+  const masterEntries = useInitEventMaster()
   const { lang, t } = useLang()
 
   const [officialOnly, setOfficialOnly] = useState(false)
@@ -53,6 +58,7 @@ export default function DashboardPage() {
   })
   const [trendPeriod, setTrendPeriod] = useState<'monthly' | 'weekly'>('monthly')
   const [trendMetric, setTrendMetric] = useState<'impressions' | 'content_count' | 'engagements' | 'video_views'>('content_count')
+  const [calendarYear, setCalendarYear] = useState<number>(() => new Date().getFullYear())
 
   function updateSelectedIds(ids: string[]) {
     setSelectedIds(ids)
@@ -97,6 +103,11 @@ export default function DashboardPage() {
     if (!data || !hasDateData) return []
     return getSocialTrend(data, selectedUUIDs, trendPeriod)
   }, [data, selectedUUIDs, trendPeriod, hasDateData])
+
+  const calendarData = useMemo(
+    () => data ? getContentCalendar(data, calendarYear, masterEntries) : { weeks: [], events: [] },
+    [data, calendarYear, masterEntries],
+  )
 
   if (loading && !data) return <div className="min-h-screen bg-brand-bg" />
 
@@ -316,6 +327,29 @@ export default function DashboardPage() {
         ) : (
           <section className="bg-brand-surface border border-brand-border rounded-xl p-6 flex items-center justify-center h-32">
             <p className="text-sm text-gray-500">{t('selectForChart')}</p>
+          </section>
+        )}
+
+        {/* ── 섹션 C: 연간 콘텐츠 캘린더 ── */}
+        {data && (
+          <section className="space-y-3">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-widest">
+                {lang === 'ko' ? '콘텐츠 캘린더' : 'Content Calendar'}
+              </h2>
+              <select
+                value={calendarYear}
+                onChange={e => setCalendarYear(Number(e.target.value))}
+                className="bg-brand-bg border border-brand-border rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-brand-accent"
+              >
+                {getAllYears().map(y => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </div>
+            <div className="bg-brand-surface border border-brand-border rounded-xl p-5">
+              <ContentCalendarChart data={calendarData} year={calendarYear} lang={lang} />
+            </div>
           </section>
         )}
 

@@ -492,7 +492,7 @@ function EventMasterPanel({
   onReorder: (items: EventMasterEntry[]) => Promise<{ error: string | null }>
 }) {
   const { t, lang } = useLang()
-  const BLANK: EventMasterEntry = { event_id: '', display_name: '', year: new Date().getFullYear(), is_global: true, sort_order: 99 }
+  const BLANK: EventMasterEntry = { event_id: '', display_name: '', year: new Date().getFullYear(), is_global: true, sort_order: 99, start_date: '', end_date: '' }
   const [form, setForm]         = useState<EventMasterEntry>(BLANK)
   const [editMode, setEditMode] = useState<'add' | 'edit'>('add')
   const [showForm, setShowForm] = useState(false)
@@ -638,6 +638,28 @@ function EventMasterPanel({
                 <option value="true">{t('scopeGlobal')}</option>
                 <option value="false">{t('scopeRegional')}</option>
               </select>
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">
+                {lang === 'ko' ? '시작일' : 'Start Date'}
+              </label>
+              <input
+                type="date"
+                value={form.start_date ?? ''}
+                onChange={e => setForm(p => ({ ...p, start_date: e.target.value }))}
+                className="w-full px-3 py-2 rounded-lg bg-brand-bg border border-brand-border text-white text-sm focus:outline-none focus:border-brand-accent"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">
+                {lang === 'ko' ? '종료일' : 'End Date'}
+              </label>
+              <input
+                type="date"
+                value={form.end_date ?? ''}
+                onChange={e => setForm(p => ({ ...p, end_date: e.target.value }))}
+                className="w-full px-3 py-2 rounded-lg bg-brand-bg border border-brand-border text-white text-sm focus:outline-none focus:border-brand-accent"
+              />
             </div>
           </div>
           <div className="flex gap-2">
