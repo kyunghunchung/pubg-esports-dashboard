@@ -207,15 +207,18 @@ export function parseContentsFile(buffer: ArrayBuffer): TypedParseResult {
       if (!isNaN(parsed.getTime())) recordedAt = parsed.toISOString()
     }
 
+    const engagementsDirect = numOrZero(raw['Engagements'] ?? raw['Engagement'] ?? raw['반응(Engagements)'])
+    const engagementsFromSplit = numOrZero(raw['Likes']) + numOrZero(raw['Comments'])
+
     social.push({
       id:             crypto.randomUUID(),
       event_id:       master.event_id,
       platform,
-      impressions:    numOrZero(raw['Impression'] ?? raw['Impressions']),
-      engagements:    numOrZero(raw['Likes']) + numOrZero(raw['Comments']),
-      video_views:    numOrZero(raw['Views']),
-      follower_delta: 0,
-      content_count:  numOrZero(raw['Number of Contents']),
+      impressions:    numOrZero(raw['Impression'] ?? raw['Impressions'] ?? raw['노출(Impressions)']),
+      engagements:    engagementsDirect || engagementsFromSplit,
+      video_views:    numOrZero(raw['Views'] ?? raw['Video Views'] ?? raw['영상 뷰']),
+      follower_delta: numOrZero(raw['Follower Delta'] ?? raw['Follower Change'] ?? raw['팔로워 증감']),
+      content_count:  numOrZero(raw['Number of Contents'] ?? raw['Content Count'] ?? raw['Contents']),
       region:         str(raw['Region / Language'] ?? raw['Region/Language']) || undefined,
       content_type_1: str(raw['Content Type 1']) || undefined,
       content_type_2: str(raw['Content Type 2']) || undefined,

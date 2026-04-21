@@ -54,13 +54,16 @@ export function generateContentsTemplate(): Uint8Array {
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, makeSheet(
     ['event_id', 'Date', 'Platform', 'Region / Language', 'Content Type 1', 'Content Type 2',
-     'Number of Contents', 'Impression', 'Views', 'Likes', 'Comments'],
+     'Number of Contents', 'Impression', 'Views', 'Engagements', 'Follower Delta'],
     [
-      ['PNC_2025', '2025-06-20', 'YouTube',      'KR', '숏폼',  '하이라이트', 12, 2800000,  740000, 45000, 3200],
-      ['PNC_2025', '2025-06-21', 'TikTok',       'EN', '숏폼',  '하이라이트',  5, 1200000, 3200000, 22000, 1800],
-      ['PNC_2025', '2025-06-21', 'Facebook',     'KR', '롱폼',  '프로모션',   20, 4500000,  980000, 88000, 5500],
-      ['PNC_2025', '2025-06-22', 'SOOP Korea',   'KR', '포스트', '하이핑',    30,  980000,       0, 12000,  900],
-      ['PNC_2025', '2025-06-22', 'CHZZK',        'KR', '숏폼',  '하이라이트',  8,  650000,  320000,  9000,  450],
+      ['PNC_2025', '2025-06-20', 'YouTube',          'KR', '숏폼',  '하이라이트', 12, 2800000,  740000, 48200,  1500],
+      ['PNC_2025', '2025-06-21', 'TikTok',           'EN', '숏폼',  '하이라이트',  5, 1200000, 3200000, 23800,   800],
+      ['PNC_2025', '2025-06-21', 'Facebook',         'KR', '롱폼',  '프로모션',   20, 4500000,  980000, 93500,  2200],
+      ['PNC_2025', '2025-06-22', 'SOOP Korea',       'KR', '포스트', '하이핑',    30,  980000,       0, 12900,   300],
+      ['PNC_2025', '2025-06-22', 'CHZZK',            'KR', '숏폼',  '하이라이트',  8,  650000,  320000,  9450,   200],
+      ['PNC_2025', '2025-06-23', 'Weibo',            'CN', '숏폼',  '하이라이트', 10,  870000,  410000, 34000,  1200],
+      ['PNC_2025', '2025-06-23', 'Douyin',           'CN', '숏폼',  '하이라이트',  7, 1100000,  920000, 55000,  2100],
+      ['PNC_2025', '2025-06-23', 'Official Community','KR', '포스트', '프로모션',  15,  430000,       0, 18000,   600],
     ],
   ), 'Contents')
   XLSX.utils.book_append_sheet(wb, makeEventIdSheet(), '유효 event_id 목록')
