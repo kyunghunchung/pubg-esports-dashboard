@@ -330,6 +330,17 @@ export default function DashboardPage() {
           </section>
         )}
 
+        {/* ── 차트 2: 소셜 채널별 성과 ── */}
+        {socialChartData.length > 0 && (
+          <section className="bg-brand-surface border border-brand-border rounded-xl p-6">
+            <div className="mb-4">
+              <h2 className="text-sm font-semibold text-gray-300">{t('socialPerformance')}</h2>
+              <p className="text-xs text-gray-500 mt-0.5">{t('socialDesc')}</p>
+            </div>
+            <SocialPlatformChart data={socialChartData} />
+          </section>
+        )}
+
         {/* ── 섹션 C: 연간 콘텐츠 캘린더 ── */}
         {data && (
           <section className="space-y-3">
@@ -350,17 +361,6 @@ export default function DashboardPage() {
             <div className="bg-brand-surface border border-brand-border rounded-xl p-5">
               <ContentCalendarChart data={calendarData} year={calendarYear} lang={lang} />
             </div>
-          </section>
-        )}
-
-        {/* ── 차트 2: 소셜 채널별 성과 ── */}
-        {socialChartData.length > 0 && (
-          <section className="bg-brand-surface border border-brand-border rounded-xl p-6">
-            <div className="mb-4">
-              <h2 className="text-sm font-semibold text-gray-300">{t('socialPerformance')}</h2>
-              <p className="text-xs text-gray-500 mt-0.5">{t('socialDesc')}</p>
-            </div>
-            <SocialPlatformChart data={socialChartData} />
           </section>
         )}
 
