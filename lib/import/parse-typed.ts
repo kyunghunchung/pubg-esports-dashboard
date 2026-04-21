@@ -18,8 +18,8 @@ import { normalizeViewershipPlatform, normalizeSocialPlatform, normalizePlatform
 // ── 유틸 ────────────────────────────────────────────────────────
 
 function str(v: unknown) { return String(v ?? '').trim() }
-function num(v: unknown): number | undefined { const n = Number(v); return isNaN(n) || n === 0 ? undefined : n }
-function numOrZero(v: unknown): number { return Number(v) || 0 }
+function num(v: unknown): number | undefined { const n = Number(v); return isNaN(n) || n === 0 ? undefined : Math.round(n) }
+function numOrZero(v: unknown): number { return Math.round(Number(v) || 0) }
 
 /** 필수 컬럼 존재 여부 검사. 누락 시 오류 메시지 반환 */
 function checkRequiredColumns(row: Record<string, unknown>, required: string[]): string | null {
@@ -214,11 +214,11 @@ export function parseContentsFile(buffer: ArrayBuffer): TypedParseResult {
       id:             crypto.randomUUID(),
       event_id:       master.event_id,
       platform,
-      impressions:    numOrZero(raw['Impression'] ?? raw['Impressions'] ?? raw['노출(Impressions)']),
-      engagements:    engagementsDirect || engagementsFromSplit,
-      video_views:    numOrZero(raw['Views'] ?? raw['Video Views'] ?? raw['영상 뷰']),
-      follower_delta: numOrZero(raw['Follower Delta'] ?? raw['Follower Change'] ?? raw['팔로워 증감']),
-      content_count:  numOrZero(raw['Number of Contents'] ?? raw['Content Count'] ?? raw['Contents']),
+      impressions:    Math.round(numOrZero(raw['Impression'] ?? raw['Impressions'] ?? raw['노출(Impressions)'])),
+      engagements:    Math.round(engagementsDirect || engagementsFromSplit),
+      video_views:    Math.round(numOrZero(raw['Views'] ?? raw['Video Views'] ?? raw['영상 뷰'])),
+      follower_delta: Math.round(numOrZero(raw['Follower Delta'] ?? raw['Follower Change'] ?? raw['팔로워 증감'])),
+      content_count:  Math.round(numOrZero(raw['Number of Contents'] ?? raw['Content Count'] ?? raw['Contents'])),
       region:         str(raw['Region / Language'] ?? raw['Region/Language']) || undefined,
       content_type_1: str(raw['Content Type 1']) || undefined,
       content_type_2: str(raw['Content Type 2']) || undefined,
