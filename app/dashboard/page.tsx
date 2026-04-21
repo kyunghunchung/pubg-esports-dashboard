@@ -13,6 +13,7 @@ import {
 } from '@/lib/store'
 import { useDashboardData } from '@/lib/hooks/useDashboardData'
 import { useInitEventMaster } from '@/lib/hooks/useInitEventMaster'
+import { useLang } from '@/lib/context/lang'
 import {
   getAllYears,
   getGlobalEventsByYear,
@@ -38,9 +39,9 @@ const ContentsTrendChart = dynamic(
 
 export default function DashboardPage() {
   const { data, loading, fetchError, refetch } = useDashboardData()
-  useInitEventMaster()  // Supabase event_master를 런타임 마스터로 세팅
+  useInitEventMaster()
+  const { lang, t } = useLang()
 
-  // selectedIds — localStorage에 유지해서 네비게이션 후에도 선택 유지
   const [selectedIds, setSelectedIds] = useState<string[]>(() => {
     if (typeof window === 'undefined') return []
     try {
@@ -50,14 +51,13 @@ export default function DashboardPage() {
     return []
   })
   const [trendPeriod, setTrendPeriod] = useState<'monthly' | 'weekly'>('monthly')
-  const [trendMetric, setTrendMetric] = useState<'impressions' | 'content_count' | 'engagements' | 'video_views'>('impressions')
+  const [trendMetric, setTrendMetric] = useState<'impressions' | 'content_count' | 'engagements' | 'video_views'>('content_count')
 
   function updateSelectedIds(ids: string[]) {
     setSelectedIds(ids)
     try { localStorage.setItem('dashboard_selected_ids', JSON.stringify(ids)) } catch { /* ignore */ }
   }
 
-  // 기본 선택: 최신 연도 첫 번째 글로벌 이벤트 (EVENT_MASTER 기준) — 저장된 값 없을 때만
   useEffect(() => {
     const years = getAllYears()
     if (!years.length) return
@@ -70,7 +70,6 @@ export default function DashboardPage() {
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // data 로드 후 선택된 이벤트가 실제 업로드 데이터에 없으면 첫 번째 유효 이벤트로 리셋
   useEffect(() => {
     if (!data?.events.length || !selectedIds.length) return
     const validNames = new Set(data.events.map(e => e.name))
@@ -100,33 +99,28 @@ export default function DashboardPage() {
 
   if (loading && !data) return <div className="min-h-screen bg-brand-bg" />
 
-  // 데이터 없어도 필터는 EVENT_MASTER 기준으로 렌더링
   const isSingleEvent = selectedIds.length === 1
   const singleEventId = isSingleEvent ? selectedIds[0] : null
 
-  // event_id → Supabase UUID 매핑 (KPI 쿼리용)
   const toUUID = (eid: string) => data?.events.find(e => e.name === eid)?.id
   const singleUUID = singleEventId ? (toUUID(singleEventId) ?? null) : null
 
-  // ── Viewership KPI (단일 이벤트 + Supabase UUID 있을 때만) ──
   const total          = singleUUID ? getViewershipTotal(data!, singleUUID) : null
   const byPlatform     = singleUUID ? getViewershipByPlatform(data!, singleUUID) : []
   const viewershipType = singleUUID ? getViewershipDataType(data!, singleUUID) : 'none'
-  const isTypeBData = viewershipType === 'B'
+  const isTypeBData    = viewershipType === 'B'
 
-  const pccv = total?.peak_ccv ?? 0
-  const accv = total?.acv ?? 0
+  const pccv           = total?.peak_ccv ?? 0
+  const accv           = total?.acv ?? 0
   const stabilityRatio = pccv > 0 ? Math.round((accv / pccv) * 100) : null
 
-  // ── Contents KPI ──
-  const content = data ? getContentAggregated(data, selectedUUIDs) : { impressions: 0, content_count: 0 }
-
-  // ── 차트 데이터 ──
-  const ccvChartData = byPlatform.map(v => ({
-    platform: v.platform,
-    peak_ccv: v.peak_ccv ?? 0,
-  }))
+  const content        = data ? getContentAggregated(data, selectedUUIDs) : { impressions: 0, content_count: 0 }
+  const ccvChartData   = byPlatform.map(v => ({ platform: v.platform, peak_ccv: v.peak_ccv ?? 0 }))
   const socialChartData = data ? getSocialAggregatedByPlatform(data, selectedUUIDs) : []
+
+  const uploadedDate = data
+    ? new Date(data.uploadedAt).toLocaleDateString(lang === 'ko' ? 'ko-KR' : 'en-US')
+    : ''
 
   return (
     <main className="min-h-screen bg-brand-bg text-white">
@@ -134,50 +128,50 @@ export default function DashboardPage() {
 
         {/* 헤더 */}
         <div>
-          <h1 className="text-2xl font-bold">PUBG Esports Dashboard</h1>
+          <h1 className="text-2xl font-bold">{t('dashTitle')}</h1>
           <p className="text-sm text-gray-400 mt-1">
             {singleEventId
               ? getDisplayName(singleEventId)
-              : `${selectedIds.length}개 이벤트 선택됨`}
+              : `${selectedIds.length}${t('eventsSelected')}`}
             {data && (
               <span className="ml-2 text-xs text-gray-500">
-                업로드: {new Date(data.uploadedAt).toLocaleDateString('ko-KR')}
+                {t('uploaded')} {uploadedDate}
               </span>
             )}
           </p>
         </div>
 
-        {/* 필터 (EVENT_MASTER 기준, 데이터 없어도 표시) */}
+        {/* 필터 */}
         <TournamentFilter
           selectedIds={selectedIds}
           onChange={updateSelectedIds}
         />
 
-        {/* Supabase 연결 오류 안내 */}
+        {/* Supabase 연결 오류 */}
         {fetchError && !data?.events.length && (
           <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-xl p-4 flex items-center justify-between">
-            <p className="text-sm text-yellow-300">서버 연결에 실패했습니다. 잠시 후 다시 시도해주세요.</p>
+            <p className="text-sm text-yellow-300">{t('connError')}</p>
             <button
               onClick={refetch}
               className="shrink-0 px-3 py-1.5 rounded-lg border border-yellow-500/40 text-yellow-300 text-xs font-medium hover:bg-yellow-500/10 transition-all"
             >
-              다시 불러오기
+              {t('retry')}
             </button>
           </div>
         )}
 
-        {/* 데이터 미업로드 안내 (필터 아래에 배치) */}
+        {/* 데이터 미업로드 안내 */}
         {!fetchError && !data?.events.length && (
           <div className="bg-brand-surface border border-brand-border rounded-xl p-6 flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-300">업로드된 데이터가 없습니다</p>
-              <p className="text-xs text-gray-500 mt-0.5">엑셀 파일을 업로드하면 KPI 카드가 채워집니다.</p>
+              <p className="text-sm font-medium text-gray-300">{t('noDataTitle')}</p>
+              <p className="text-xs text-gray-500 mt-0.5">{t('noDataDesc')}</p>
             </div>
             <Link
               href="/data-upload"
               className="shrink-0 px-4 py-2 rounded-lg bg-brand-accent text-white text-sm font-medium hover:bg-brand-accent/80 transition-all"
             >
-              데이터 업로드 →
+              {t('uploadDataBtn')}
             </Link>
           </div>
         )}
@@ -190,7 +184,7 @@ export default function DashboardPage() {
             </h2>
             {!isSingleEvent && (
               <span className="text-xs text-gray-600 bg-brand-surface border border-brand-border px-2 py-0.5 rounded-full">
-                단일 이벤트를 선택해주세요
+                {t('selectSingleHint')}
               </span>
             )}
           </div>
@@ -199,36 +193,36 @@ export default function DashboardPage() {
               label="PCCV"
               sublabel="Peak Concurrent Viewers"
               value={pccv}
-              unit="명"
+              unit={lang === 'ko' ? '명' : ''}
               disabled={!isSingleEvent}
-              caption={isTypeBData ? '※ 플랫폼별 PCCV 합산 수치입니다' : undefined}
+              caption={isTypeBData ? t('typeBCaption') : undefined}
             />
             <KpiCard
               label="ACCV"
               sublabel="Average Concurrent Viewers"
               value={accv}
-              unit="명"
+              unit={lang === 'ko' ? '명' : ''}
               disabled={!isSingleEvent}
             />
             <KpiCard
               label="UV"
               sublabel="Unique Viewers"
               value={total?.unique_viewers ?? 0}
-              unit="명"
+              unit={lang === 'ko' ? '명' : ''}
               disabled={!isSingleEvent}
             />
             <KpiCard
               label="Stability Ratio"
               sublabel="ACCV ÷ PCCV"
-              tooltip="끝까지 남은 시청자 비율 — 코어팬 지표"
+              tooltip={t('stabilityTooltip')}
               value={stabilityRatio ?? 0}
               unit="%"
               disabled={!isSingleEvent}
               badge={
                 stabilityRatio !== null
-                  ? stabilityRatio >= 70 ? { text: '안정적', color: 'green' }
-                  : stabilityRatio >= 50 ? { text: '보통',   color: 'yellow' }
-                  :                        { text: '편차 큼', color: 'red' }
+                  ? stabilityRatio >= 70 ? { text: t('badgeStable'), color: 'green' }
+                  : stabilityRatio >= 50 ? { text: t('badgeNormal'), color: 'yellow' }
+                  :                        { text: t('badgeHigh'),   color: 'red' }
                   : undefined
               }
             />
@@ -241,17 +235,15 @@ export default function DashboardPage() {
             Contents
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <KpiCard label="Number of Contents" value={content.content_count} unit="건" />
-            <KpiCard label="Impression"         value={content.impressions}   unit="회" />
+            <KpiCard label="Number of Contents" value={content.content_count} unit={lang === 'ko' ? '건' : ''} />
+            <KpiCard label="Impression"         value={content.impressions}   unit={lang === 'ko' ? '회' : ''} />
           </div>
 
-          {/* 기간별 트렌드 — Date 데이터 있을 때만 */}
+          {/* 기간별 트렌드 */}
           {hasDateData ? (
             <div className="bg-brand-surface border border-brand-border rounded-xl p-5 space-y-4 mt-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-gray-300">기간별 트렌드</p>
-                </div>
+                <p className="text-sm font-semibold text-gray-300">{t('trendTitle')}</p>
                 <div className="flex items-center gap-2">
                   <div className="flex rounded-lg border border-brand-border overflow-hidden">
                     {(['monthly', 'weekly'] as const).map(p => (
@@ -263,7 +255,7 @@ export default function DashboardPage() {
                           trendPeriod === p ? 'bg-brand-accent text-white' : 'text-gray-400 hover:text-white'
                         )}
                       >
-                        {p === 'monthly' ? '월간' : '주간'}
+                        {p === 'monthly' ? t('monthly') : t('weekly')}
                       </button>
                     ))}
                   </div>
@@ -289,19 +281,19 @@ export default function DashboardPage() {
           isTypeBData && ccvChartData.length > 0 ? (
             <section className="bg-brand-surface border border-brand-border rounded-xl p-6">
               <div className="mb-4">
-                <h2 className="text-sm font-semibold text-gray-300">플랫폼별 PCCV</h2>
+                <h2 className="text-sm font-semibold text-gray-300">{t('pccvByPlatform')}</h2>
                 <p className="text-xs text-gray-500 mt-0.5">{singleEventId ? getDisplayName(singleEventId) : ''}</p>
               </div>
               <PlatformCcvChart data={ccvChartData} />
             </section>
           ) : viewershipType === 'A' ? (
             <section className="bg-brand-surface border border-brand-border rounded-xl p-6 flex items-center justify-center h-32">
-              <p className="text-sm text-gray-500">플랫폼별 데이터가 없습니다 (통합 데이터만 업로드됨)</p>
+              <p className="text-sm text-gray-500">{t('noPerPlatformData')}</p>
             </section>
           ) : null
         ) : (
           <section className="bg-brand-surface border border-brand-border rounded-xl p-6 flex items-center justify-center h-32">
-            <p className="text-sm text-gray-500">단일 이벤트를 선택하면 플랫폼별 CCV 차트가 표시됩니다.</p>
+            <p className="text-sm text-gray-500">{t('selectForChart')}</p>
           </section>
         )}
 
@@ -309,8 +301,8 @@ export default function DashboardPage() {
         {socialChartData.length > 0 && (
           <section className="bg-brand-surface border border-brand-border rounded-xl p-6">
             <div className="mb-4">
-              <h2 className="text-sm font-semibold text-gray-300">소셜 채널별 성과</h2>
-              <p className="text-xs text-gray-500 mt-0.5">플랫폼별 노출 · 반응 · 영상뷰 (선택 이벤트 합산)</p>
+              <h2 className="text-sm font-semibold text-gray-300">{t('socialPerformance')}</h2>
+              <p className="text-xs text-gray-500 mt-0.5">{t('socialDesc')}</p>
             </div>
             <SocialPlatformChart data={socialChartData} />
           </section>

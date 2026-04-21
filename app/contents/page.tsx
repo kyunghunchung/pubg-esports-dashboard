@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { useDashboardData } from '@/lib/hooks/useDashboardData'
 import { useInitEventMaster } from '@/lib/hooks/useInitEventMaster'
+import { useLang } from '@/lib/context/lang'
 import {
   getAllYears,
   getEventsByYear,
@@ -11,8 +12,7 @@ import {
 } from '@/lib/config/event-master'
 import { KpiCard } from '@/components/kpi/KpiCard'
 import { getSocialTrend, hasSocialDateData } from '@/lib/store'
-import { formatNumber } from '@/lib/utils'
-import { cn } from '@/lib/utils'
+import { formatNumber, cn } from '@/lib/utils'
 import dynamic from 'next/dynamic'
 
 const ContentsTrendChart = dynamic(
@@ -20,13 +20,12 @@ const ContentsTrendChart = dynamic(
   { ssr: false },
 )
 
-
 function FilterSelect({
   label,
   value,
   onChange,
   options,
-  placeholder = '전체',
+  placeholder = '',
   disabled = false,
 }: {
   label: string
@@ -62,34 +61,28 @@ function FilterSelect({
 
 export default function ContentsPage() {
   const { data, loading, fetchError, refetch } = useDashboardData()
-  const masterEntries = useInitEventMaster()  // Supabase 마스터 로드 + 재렌더 트리거
+  const masterEntries = useInitEventMaster()
+  const { lang, t } = useLang()
 
   const [filterYear,     setFilterYear]     = useState('')
-  const [filterEvent,    setFilterEvent]    = useState('')  // EVENT_MASTER event_id
+  const [filterEvent,    setFilterEvent]    = useState('')
   const [filterRegion,   setFilterRegion]   = useState('')
   const [filterPlatform, setFilterPlatform] = useState('')
   const [filterType1,    setFilterType1]    = useState('')
   const [filterType2,    setFilterType2]    = useState('')
 
-  // 트렌드 뷰 상태
-  const [trendPeriod,  setTrendPeriod]  = useState<'monthly' | 'weekly'>('monthly')
-  const [trendMetric,  setTrendMetric]  = useState<'impressions' | 'content_count' | 'engagements' | 'video_views'>('impressions')
+  const [trendPeriod, setTrendPeriod] = useState<'monthly' | 'weekly'>('monthly')
+  const [trendMetric, setTrendMetric] = useState<'impressions' | 'content_count' | 'engagements' | 'video_views'>('content_count')
 
-  // 연도 옵션 — 마스터 로드 후 재계산
   const yearOptions = useMemo(() => getAllYears(), [masterEntries])
 
-  // 대회 옵션 — 선택 연도의 EVENT_MASTER 항목 (마스터 로드 후 재계산)
   const eventOptions = useMemo(() =>
-    filterYear
-      ? getEventsByYear(Number(filterYear))
-      : [],
+    filterYear ? getEventsByYear(Number(filterYear)) : [],
     [filterYear, masterEntries]
   )
 
-  // event_id → Supabase UUID
   const toUUID = (eid: string) => data?.events.find(e => e.name === eid)?.id
 
-  // 필터 적용된 Supabase UUID 목록
   const filteredUUIDs = useMemo(() => {
     if (!data) return []
     if (filterEvent) {
@@ -104,7 +97,6 @@ export default function ContentsPage() {
     return data.events.map(e => e.id)
   }, [data, filterEvent, filterYear]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 소셜 데이터 필터링
   const filteredSocial = useMemo(() => {
     if (!data) return []
     let rows = data.social.filter(s => filteredUUIDs.includes(s.event_id))
@@ -122,31 +114,25 @@ export default function ContentsPage() {
     impressions:   filteredSocial.reduce((sum, s) => sum + s.impressions, 0),
   }), [filteredSocial])
 
-  const platformOptions = useMemo(() => {
-    if (!data) return []
-    return Array.from(new Set(data.social.map(s => s.platform))).sort()
-  }, [data])
+  const platformOptions = useMemo(() =>
+    data ? Array.from(new Set(data.social.map(s => s.platform))).sort() : [],
+    [data])
 
-  const regionOptions = useMemo(() => {
-    if (!data) return []
-    return Array.from(new Set(data.social.map(s => s.region).filter(Boolean))) as string[]
-  }, [data])
+  const regionOptions = useMemo(() =>
+    data ? Array.from(new Set(data.social.map(s => s.region).filter(Boolean))) as string[] : [],
+    [data])
 
-  const type1Options = useMemo(() => {
-    if (!data) return []
-    return Array.from(new Set(data.social.map(s => s.content_type_1).filter(Boolean))) as string[]
-  }, [data])
+  const type1Options = useMemo(() =>
+    data ? Array.from(new Set(data.social.map(s => s.content_type_1).filter(Boolean))) as string[] : [],
+    [data])
 
-  const type2Options = useMemo(() => {
-    if (!data) return []
-    return Array.from(new Set(data.social.map(s => s.content_type_2).filter(Boolean))) as string[]
-  }, [data])
+  const type2Options = useMemo(() =>
+    data ? Array.from(new Set(data.social.map(s => s.content_type_2).filter(Boolean))) as string[] : [],
+    [data])
 
-  // 트렌드 데이터 (필터 적용)
   const hasDateData = useMemo(() =>
     data ? hasSocialDateData(data, filteredUUIDs) : false,
-    [data, filteredUUIDs]
-  )
+    [data, filteredUUIDs])
 
   const trendData = useMemo(() => {
     if (!data || !hasDateData) return []
@@ -167,28 +153,28 @@ export default function ContentsPage() {
         {/* 헤더 */}
         <div>
           <h1 className="text-2xl font-bold">Contents</h1>
-          <p className="text-sm text-gray-400 mt-1">소셜 채널별 콘텐츠 성과 분석</p>
+          <p className="text-sm text-gray-400 mt-1">{t('contentsSubtitle')}</p>
         </div>
 
-        {/* Supabase 연결 오류 안내 */}
+        {/* Supabase 연결 오류 */}
         {fetchError && !data?.events.length && (
           <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-xl p-4 flex items-center justify-between">
-            <p className="text-sm text-yellow-300">서버 연결에 실패했습니다. 잠시 후 다시 시도해주세요.</p>
+            <p className="text-sm text-yellow-300">{t('connError')}</p>
             <button
               onClick={refetch}
               className="shrink-0 px-3 py-1.5 rounded-lg border border-yellow-500/40 text-yellow-300 text-xs font-medium hover:bg-yellow-500/10 transition-all"
             >
-              다시 불러오기
+              {t('retry')}
             </button>
           </div>
         )}
 
-        {/* 데이터 없음 안내 */}
+        {/* 데이터 없음 */}
         {!fetchError && !data?.events.length && (
           <div className="bg-brand-surface border border-brand-border rounded-xl p-6 flex items-center justify-between">
-            <p className="text-sm text-gray-400">업로드된 데이터가 없습니다.</p>
+            <p className="text-sm text-gray-400">{t('noDataUploaded')}</p>
             <Link href="/data-upload" className="px-4 py-2 rounded-lg bg-brand-accent text-white text-sm font-medium hover:bg-brand-accent/80">
-              데이터 업로드 →
+              {t('uploadDataBtn')}
             </Link>
           </div>
         )}
@@ -196,16 +182,15 @@ export default function ContentsPage() {
         {/* 6개 필터 */}
         <section className="bg-brand-surface border border-brand-border rounded-xl p-5">
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-            {/* 연도 */}
             <FilterSelect
-              label="연도"
+              label={t('filterYear')}
               value={filterYear}
               onChange={v => { setFilterYear(v); setFilterEvent('') }}
               options={yearOptions.map(y => ({ value: String(y), label: String(y) }))}
+              placeholder={t('all')}
             />
-            {/* 대회 */}
             <div className="flex flex-col gap-1">
-              <label className="text-xs text-gray-500 font-medium uppercase tracking-wider">대회</label>
+              <label className="text-xs text-gray-500 font-medium uppercase tracking-wider">{t('filterTournament')}</label>
               <select
                 value={filterEvent}
                 onChange={e => setFilterEvent(e.target.value)}
@@ -215,61 +200,58 @@ export default function ContentsPage() {
                   eventOptions.length === 0 && 'opacity-40 cursor-not-allowed',
                 )}
               >
-                <option value="">전체</option>
+                <option value="">{t('all')}</option>
                 {eventOptions.map(e => (
                   <option key={e.event_id} value={e.event_id}>{e.display_name}</option>
                 ))}
               </select>
             </div>
-            {/* 지역 */}
             <FilterSelect
-              label="지역 (언어)"
+              label={t('filterRegion')}
               value={filterRegion}
               onChange={setFilterRegion}
               options={regionOptions}
-              placeholder={regionOptions.length === 0 ? '데이터 없음' : '전체'}
+              placeholder={regionOptions.length === 0 ? t('noDataPlaceholder') : t('all')}
             />
-            {/* 플랫폼 */}
             <FilterSelect
-              label="플랫폼"
+              label={t('filterPlatform')}
               value={filterPlatform}
               onChange={setFilterPlatform}
               options={platformOptions}
+              placeholder={t('all')}
             />
-            {/* 콘텐츠 종류 1 */}
             <FilterSelect
-              label="콘텐츠 종류 1"
+              label={t('filterType1')}
               value={filterType1}
               onChange={setFilterType1}
               options={type1Options}
-              placeholder={type1Options.length === 0 ? '데이터 없음' : '전체'}
+              placeholder={type1Options.length === 0 ? t('noDataPlaceholder') : t('all')}
             />
-            {/* 콘텐츠 종류 2 */}
             <FilterSelect
-              label="콘텐츠 종류 2"
+              label={t('filterType2')}
               value={filterType2}
               onChange={setFilterType2}
               options={type2Options}
-              placeholder={type2Options.length === 0 ? '데이터 없음' : '전체'}
+              placeholder={type2Options.length === 0 ? t('noDataPlaceholder') : t('all')}
             />
           </div>
 
           {filterEvent && (
             <div className="mt-3 pt-3 border-t border-brand-border">
               <p className="text-xs text-gray-400">
-                선택 이벤트: <span className="text-white font-medium">{getDisplayName(filterEvent)}</span>
+                {t('selectedEvent')} <span className="text-white font-medium">{getDisplayName(filterEvent)}</span>
               </p>
             </div>
           )}
         </section>
 
-        {/* KPI 카드 3개 */}
+        {/* KPI 카드 */}
         <section className="space-y-3">
-          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-widest">Contents KPI</h2>
+          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-widest">{t('kpiSectionTitle')}</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <KpiCard label="Number of Contents" value={kpi.content_count} unit="건" />
-            <KpiCard label="Views"              value={kpi.video_views}   unit="회" />
-            <KpiCard label="Engagement"         value={kpi.engagements}   unit="회" />
+            <KpiCard label="Number of Contents" value={kpi.content_count} unit={lang === 'ko' ? '건' : ''} />
+            <KpiCard label="Views"              value={kpi.video_views}   unit={lang === 'ko' ? '회' : ''} />
+            <KpiCard label="Engagement"         value={kpi.engagements}   unit={lang === 'ko' ? '회' : ''} />
           </div>
         </section>
 
@@ -278,11 +260,10 @@ export default function ContentsPage() {
           <section className="bg-brand-surface border border-brand-border rounded-xl p-6 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="text-sm font-semibold text-gray-300">기간별 트렌드</h2>
-                <p className="text-xs text-gray-500 mt-0.5">날짜 데이터가 있는 경우에만 표시됩니다</p>
+                <h2 className="text-sm font-semibold text-gray-300">{t('trendTitle')}</h2>
+                <p className="text-xs text-gray-500 mt-0.5">{t('trendDateHint')}</p>
               </div>
               <div className="flex items-center gap-2">
-                {/* 주기 토글 */}
                 <div className="flex rounded-lg border border-brand-border overflow-hidden">
                   {(['monthly', 'weekly'] as const).map(p => (
                     <button
@@ -290,16 +271,13 @@ export default function ContentsPage() {
                       onClick={() => setTrendPeriod(p)}
                       className={cn(
                         'px-3 py-1.5 text-xs font-medium transition-colors',
-                        trendPeriod === p
-                          ? 'bg-brand-accent text-white'
-                          : 'text-gray-400 hover:text-white'
+                        trendPeriod === p ? 'bg-brand-accent text-white' : 'text-gray-400 hover:text-white'
                       )}
                     >
-                      {p === 'monthly' ? '월간' : '주간'}
+                      {p === 'monthly' ? t('monthly') : t('weekly')}
                     </button>
                   ))}
                 </div>
-                {/* 지표 선택 */}
                 <select
                   value={trendMetric}
                   onChange={e => setTrendMetric(e.target.value as typeof trendMetric)}
@@ -317,7 +295,11 @@ export default function ContentsPage() {
         ) : (
           data && filteredUUIDs.length > 0 && (
             <section className="bg-brand-surface border border-brand-border rounded-xl p-5 flex items-center gap-3">
-              <span className="text-gray-500 text-sm">기간별 트렌드를 보려면 Contents 템플릿에 <code className="bg-brand-bg px-1.5 py-0.5 rounded text-xs text-gray-300">Date</code> 컬럼을 채워서 업로드하세요.</span>
+              <span className="text-gray-500 text-sm">
+                {t('trendDatePrompt').split('Date').map((part, i) =>
+                  i === 0 ? part : <><code key={i} className="bg-brand-bg px-1.5 py-0.5 rounded text-xs text-gray-300">Date</code>{part}</>
+                )}
+              </span>
             </section>
           )
         )}
@@ -326,19 +308,23 @@ export default function ContentsPage() {
         {filteredSocial.length > 0 ? (
           <section className="bg-brand-surface border border-brand-border rounded-xl overflow-hidden">
             <div className="px-5 py-4 border-b border-brand-border">
-              <h2 className="text-sm font-semibold text-gray-300">플랫폼별 상세</h2>
-              <p className="text-xs text-gray-500 mt-0.5">총 {filteredSocial.length}개 데이터 행</p>
+              <h2 className="text-sm font-semibold text-gray-300">{t('platformDetails')}</h2>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {lang === 'ko'
+                  ? `총 ${filteredSocial.length}${t('dataRows')}`
+                  : `${filteredSocial.length}${t('dataRows')}`}
+              </p>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-brand-border">
-                    <th className="px-5 py-3 text-left text-gray-400 font-medium">이벤트</th>
-                    <th className="px-5 py-3 text-left text-gray-400 font-medium">플랫폼</th>
-                    <th className="px-5 py-3 text-right text-gray-400 font-medium">콘텐츠 수</th>
-                    <th className="px-5 py-3 text-right text-gray-400 font-medium">노출</th>
-                    <th className="px-5 py-3 text-right text-gray-400 font-medium">조회 수</th>
-                    <th className="px-5 py-3 text-right text-gray-400 font-medium">Engagement</th>
+                    <th className="px-5 py-3 text-left text-gray-400 font-medium">{t('colEvent')}</th>
+                    <th className="px-5 py-3 text-left text-gray-400 font-medium">{t('colPlatform')}</th>
+                    <th className="px-5 py-3 text-right text-gray-400 font-medium">{t('colContents')}</th>
+                    <th className="px-5 py-3 text-right text-gray-400 font-medium">{t('colImpression')}</th>
+                    <th className="px-5 py-3 text-right text-gray-400 font-medium">{t('colViews')}</th>
+                    <th className="px-5 py-3 text-right text-gray-400 font-medium">{t('colEngagement')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -361,7 +347,7 @@ export default function ContentsPage() {
           </section>
         ) : (
           <div className="text-center py-16 text-gray-500 text-sm">
-            조건에 맞는 데이터가 없습니다.
+            {t('noMatchingData')}
           </div>
         )}
 

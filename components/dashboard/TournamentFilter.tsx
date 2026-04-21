@@ -7,6 +7,7 @@ import {
   getDisplayName,
 } from '@/lib/config/event-master'
 import { useInitEventMaster } from '@/lib/hooks/useInitEventMaster'
+import { useLang } from '@/lib/context/lang'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -15,7 +16,8 @@ interface Props {
 }
 
 export function TournamentFilter({ selectedIds, onChange }: Props) {
-  useInitEventMaster()  // 마스터 로드 후 이 컴포넌트를 재렌더링
+  useInitEventMaster()
+  const { t } = useLang()
   const years = getAllYears()
 
   // 현재 선택된 연도 — selectedIds 첫 번째 항목 기반
@@ -82,7 +84,7 @@ export function TournamentFilter({ selectedIds, onChange }: Props) {
               : 'border-brand-border bg-brand-surface text-gray-400 hover:text-white hover:border-gray-500'
           )}
         >
-          전체
+          {t('all')}
         </button>
 
         {yearEvents.map(e => {

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import { Nav } from '@/components/Nav'
+import { Providers } from '@/app/providers'
 import './globals.css'
 
 export const dynamic = 'force-static'
@@ -20,8 +21,10 @@ export default function RootLayout({
   return (
     <html lang="ko" className="dark">
       <body className={`${inter.className} bg-brand-bg text-white antialiased`}>
-        <Nav />
-        {children}
+        <Providers>
+          <Nav />
+          {children}
+        </Providers>
       </body>
     </html>
   )
