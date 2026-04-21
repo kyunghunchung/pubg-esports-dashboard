@@ -8,19 +8,22 @@
 // Viewership / Contents / Co-streaming 전체 공통
 // key: DB 저장값 (소문자)  |  label: 화면 표시·엑셀 입력값
 export const PLATFORMS = {
-  chzzk:       'CHZZK',
-  facebook:    'Facebook',
-  instagram:   'Instagram',
-  kick:        'Kick',
-  nimotv:      'Nimo TV',
-  soop_global: 'SOOP (Global)',
-  soop_korea:  'SOOP Korea',
-  steam:       'Steam',
-  tiktok:      'TikTok',
-  trovo:       'Trovo',
-  twitch:      'Twitch',
-  x:           'X (Twitter)',
-  youtube:     'YouTube',
+  chzzk:              'CHZZK',
+  douyin:             'Douyin',
+  facebook:           'Facebook',
+  instagram:          'Instagram',
+  kick:               'Kick',
+  nimotv:             'Nimo TV',
+  official_community: 'Official Community',
+  soop_global:        'SOOP (Global)',
+  soop_korea:         'SOOP Korea',
+  steam:              'Steam',
+  tiktok:             'TikTok',
+  trovo:              'Trovo',
+  twitch:             'Twitch',
+  weibo:              'Weibo',
+  x:                  'X (Twitter)',
+  youtube:            'YouTube',
 } as const
 
 export type PlatformId = keyof typeof PLATFORMS

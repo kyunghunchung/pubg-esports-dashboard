@@ -3,7 +3,7 @@ export type EventStatus = 'upcoming' | 'live' | 'completed'
 export type EventType = 'PGS' | 'PNC' | 'PGC' | 'EWC' | 'PMI' | 'ENC' | 'Regional'
 export type KpiCategory = 'viewership' | 'social' | 'costreaming'
 // 통합 플랫폼 (lib/config/constants.ts PLATFORMS와 동기화)
-export type Platform = 'chzzk' | 'facebook' | 'instagram' | 'kick' | 'nimotv' | 'soop_global' | 'soop_korea' | 'steam' | 'tiktok' | 'trovo' | 'twitch' | 'x' | 'youtube'
+export type Platform = 'chzzk' | 'douyin' | 'facebook' | 'instagram' | 'kick' | 'nimotv' | 'official_community' | 'soop_global' | 'soop_korea' | 'steam' | 'tiktok' | 'trovo' | 'twitch' | 'weibo' | 'x' | 'youtube'
 // 뷰어십은 합산 행을 위해 'total' 추가
 export type ViewershipPlatform = Platform | 'total'
 // 소셜(콘텐츠)은 통합 플랫폼과 동일
