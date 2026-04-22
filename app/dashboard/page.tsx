@@ -16,7 +16,6 @@ import { useLang } from '@/lib/context/lang'
 import {
   getAllYears,
   getGlobalEventsByYear,
-  getEventsByYear,
   getEventMasterById,
   getDisplayName,
 } from '@/lib/config/event-master'
@@ -48,7 +47,7 @@ export default function DashboardPage() {
   })
   const trendPeriod = 'weekly' as const
   const [trendMetric, setTrendMetric] = useState<'impressions' | 'content_count' | 'engagements' | 'video_views'>('content_count')
-  const [calendarYear, setCalendarYear] = useState<number>(() => new Date().getFullYear())
+  const [calendarRegion, setCalendarRegion] = useState<string>('')
 
   function updateSelectedIds(ids: string[]) {
     setSelectedIds(ids)
@@ -84,32 +83,30 @@ export default function DashboardPage() {
     () => selectedIds.map((eid: string) => data?.events.find(e => e.name === eid)?.id).filter((id): id is string => Boolean(id)),
     [data, selectedIds],
   )
+  const hasDateData = useMemo(
+    () => data ? hasSocialDateData(data, selectedUUIDs) : false,
+    [data, selectedUUIDs],
+  )
+  const trendData = useMemo(() => {
+    if (!data || !hasDateData) return []
+    return getSocialTrend(data, selectedUUIDs, trendPeriod)
+  }, [data, selectedUUIDs, trendPeriod, hasDateData])
 
-  // 선택된 이벤트의 연도 → 연도 전체 콘텐츠 트렌드에 사용
+  // 선택 이벤트의 연도 → 캘린더 연도 연동
   const selectedYear = useMemo(() => {
     if (!selectedIds.length) return getAllYears()[0]
     return getEventMasterById(selectedIds[0])?.year ?? getAllYears()[0]
   }, [selectedIds])
 
-  const yearUUIDs = useMemo(() => {
-    if (!data) return []
-    return getEventsByYear(selectedYear)
-      .map(e => data.events.find(ev => ev.name === e.event_id)?.id)
-      .filter((id): id is string => Boolean(id))
-  }, [data, selectedYear])
-
-  const annualHasDateData = useMemo(
-    () => data ? hasSocialDateData(data, yearUUIDs) : false,
-    [data, yearUUIDs],
+  // 언어 옵션: data.social의 region 값 기준
+  const regionOptions = useMemo(() =>
+    data ? Array.from(new Set(data.social.map(s => s.region).filter(Boolean))).sort() as string[] : [],
+    [data],
   )
-  const annualTrendData = useMemo(() => {
-    if (!data || !annualHasDateData) return []
-    return getSocialTrend(data, yearUUIDs, trendPeriod)
-  }, [data, yearUUIDs, trendPeriod, annualHasDateData])
 
   const calendarData = useMemo(
-    () => data ? getContentCalendar(data, calendarYear, masterEntries) : { weeks: [], events: [] },
-    [data, calendarYear, masterEntries],
+    () => data ? getContentCalendar(data, selectedYear, masterEntries, calendarRegion || undefined) : { weeks: [], events: [] },
+    [data, selectedYear, masterEntries, calendarRegion],
   )
 
   if (loading && !data) return <div className="min-h-screen bg-brand-bg" />
@@ -275,16 +272,11 @@ export default function DashboardPage() {
             <KpiCard label="Engagement"         value={content.engagements}   unit={lang === 'ko' ? '회' : ''} />
           </div>
 
-          {/* 연간 콘텐츠 트렌드 (주간 — 선택 연도 전체 기준) */}
-          {annualHasDateData ? (
+          {/* 기간별 트렌드 (주간) */}
+          {hasDateData ? (
             <div className="bg-brand-surface border border-brand-border rounded-xl p-5 space-y-4 mt-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-semibold text-gray-300">{t('trendTitle')}</p>
-                  <span className="text-xs text-gray-500 bg-brand-bg border border-brand-border px-2 py-0.5 rounded-full">
-                    {selectedYear}
-                  </span>
-                </div>
+                <p className="text-sm font-semibold text-gray-300">{t('trendTitle')}</p>
                 <select
                   value={trendMetric}
                   onChange={e => setTrendMetric(e.target.value as typeof trendMetric)}
@@ -296,7 +288,7 @@ export default function DashboardPage() {
                   <option value="engagements">Engagement</option>
                 </select>
               </div>
-              <ContentsTrendChart data={annualTrendData} metric={trendMetric} period={trendPeriod} />
+              <ContentsTrendChart data={trendData} metric={trendMetric} period={trendPeriod} />
             </div>
           ) : null}
         </section>
@@ -306,21 +298,27 @@ export default function DashboardPage() {
         {data && (
           <section className="space-y-3">
             <div className="flex items-center justify-between gap-3 flex-wrap">
-              <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-widest">
-                Contents Calendar
-              </h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-widest">
+                  Contents Calendar
+                </h2>
+                <span className="text-xs text-gray-600 bg-brand-surface border border-brand-border px-2 py-0.5 rounded-full">
+                  {selectedYear}
+                </span>
+              </div>
               <select
-                value={calendarYear}
-                onChange={e => setCalendarYear(Number(e.target.value))}
+                value={calendarRegion}
+                onChange={e => setCalendarRegion(e.target.value)}
                 className="bg-brand-bg border border-brand-border rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-brand-accent"
               >
-                {getAllYears().map(y => (
-                  <option key={y} value={y}>{y}</option>
+                <option value="">{lang === 'ko' ? '전체 언어' : 'All Languages'}</option>
+                {regionOptions.map(r => (
+                  <option key={r} value={r}>{r}</option>
                 ))}
               </select>
             </div>
             <div className="bg-brand-surface border border-brand-border rounded-xl p-5">
-              <ContentCalendarChart data={calendarData} year={calendarYear} lang={lang} />
+              <ContentCalendarChart data={calendarData} year={selectedYear} lang={lang} />
             </div>
           </section>
         )}

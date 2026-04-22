@@ -325,12 +325,14 @@ export function getContentCalendar(
   data: DashboardData,
   year: number,
   masterEntries: EventMasterEntry[],
+  region?: string,
 ): ContentCalendarData {
   const weeks = allWeeksOfYear(year)
   const wkMap = new Map(weeks.map((w, i) => [w.wk, i]))
 
-  // 콘텐츠 주차별 집계
+  // 콘텐츠 주차별 집계 (region 필터 적용 시 해당 언어만)
   for (const s of data.social) {
+    if (region && s.region !== region) continue
     const info = isoWeekOf(s.recorded_at)
     if (!info || info.isoYear !== year) continue
     const wk = `W${String(info.week).padStart(2, '0')}`
