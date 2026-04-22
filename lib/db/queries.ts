@@ -144,7 +144,25 @@ export async function saveTypedKpisToSupabase(
   try {
     if (!events.length) return { error: '이벤트 데이터가 없습니다.' }
 
-    // 1. 이벤트 upsert
+    const eventNames = events.map(e => e.name)
+
+    // 1. upsert 전에 기존 UUID를 먼저 조회 — 이후 KPI 삭제에 사용
+    const { data: existingRows } = await supabase
+      .from('events')
+      .select('id, name, year')
+      .in('name', eventNames)
+    const existingUUIDs = (existingRows ?? []).map(r => r.id)
+
+    // 2. 기존 KPI 삭제 (기존 UUID 기준 — upsert 전에 처리해 누락 방지)
+    if (existingUUIDs.length > 0) {
+      const kpiTable =
+        kpiType === 'viewership'  ? 'viewership_kpis'  :
+        kpiType === 'contents'    ? 'social_kpis'       :
+                                    'costreaming_kpis'
+      await supabase.from(kpiTable).delete().in('event_id', existingUUIDs)
+    }
+
+    // 3. 이벤트 upsert
     const { error: evErr } = await supabase
       .from('events')
       .upsert(
@@ -162,11 +180,11 @@ export async function saveTypedKpisToSupabase(
       )
     if (evErr) return { error: `이벤트 저장 실패: ${evErr.message}` }
 
-    // 2. name+year 로 UUID 조회 (upsert 반환값 불안정 대비)
+    // 4. 최종 UUID 조회 (upsert 후 확정된 UUID)
     const { data: fetched, error: fetchErr } = await supabase
       .from('events')
       .select('id, name, year')
-      .in('name', events.map(e => e.name))
+      .in('name', eventNames)
     if (fetchErr) return { error: `이벤트 ID 조회 실패: ${fetchErr.message}` }
     if (!fetched?.length) return { error: '이벤트 저장 후 ID를 받지 못했습니다.' }
 
@@ -179,67 +197,57 @@ export async function saveTypedKpisToSupabase(
     const missing = events.filter(e => !idMap.has(e.id)).map(e => e.name)
     if (missing.length) return { error: `이벤트 UUID 매핑 실패: ${missing.join(', ')}` }
 
-    const uuids = Array.from(idMap.values())
     const toUUID = (localId: string) => idMap.get(localId)!
 
-    // 3. 해당 탭의 기존 KPI 삭제
-    if (kpiType === 'viewership') {
-      await supabase.from('viewership_kpis').delete().in('event_id', uuids)
-      if (kpis.viewership?.length) {
-        const err = await insertChunked('viewership_kpis', kpis.viewership.map(v => ({
-          event_id:        toUUID(v.event_id),
-          platform:        v.platform,
-          peak_ccv:        v.peak_ccv        ?? null,
-          acv:             v.acv             ?? null,
-          hours_watched:   v.hours_watched   ?? null,
-          unique_viewers:  v.unique_viewers  ?? null,
-          hours_broadcast: v.hours_broadcast ?? null,
-          is_official:     v.is_official     ?? null,
-          recorded_at:     v.recorded_at,
-        })))
-        if (err) return { error: `뷰어십 저장 실패: ${err}` }
-      }
+    // 5. 새 KPI 삽입
+    if (kpiType === 'viewership' && kpis.viewership?.length) {
+      const err = await insertChunked('viewership_kpis', kpis.viewership.map(v => ({
+        event_id:        toUUID(v.event_id),
+        platform:        v.platform,
+        peak_ccv:        v.peak_ccv        ?? null,
+        acv:             v.acv             ?? null,
+        hours_watched:   v.hours_watched   ?? null,
+        unique_viewers:  v.unique_viewers  ?? null,
+        hours_broadcast: v.hours_broadcast ?? null,
+        is_official:     v.is_official     ?? null,
+        recorded_at:     v.recorded_at,
+      })))
+      if (err) return { error: `뷰어십 저장 실패: ${err}` }
     }
 
-    if (kpiType === 'contents') {
-      await supabase.from('social_kpis').delete().in('event_id', uuids)
-      if (kpis.social?.length) {
-        const err = await insertChunked('social_kpis', kpis.social.map(s => ({
-          event_id:       toUUID(s.event_id),
-          platform:       s.platform,
-          impressions:    Math.round(s.impressions),
-          engagements:    Math.round(s.engagements),
-          video_views:    Math.round(s.video_views),
-          follower_delta: Math.round(s.follower_delta),
-          content_count:  s.content_count != null ? Math.round(s.content_count) : null,
-          region:         s.region         ?? null,
-          content_type_1: s.content_type_1 ?? null,
-          content_type_2: s.content_type_2 ?? null,
-          recorded_at:    s.recorded_at,
-        })))
-        if (err) return { error: `소셜 저장 실패: ${err}` }
-      }
+    if (kpiType === 'contents' && kpis.social?.length) {
+      const err = await insertChunked('social_kpis', kpis.social.map(s => ({
+        event_id:       toUUID(s.event_id),
+        platform:       s.platform,
+        impressions:    Math.round(s.impressions),
+        engagements:    Math.round(s.engagements),
+        video_views:    Math.round(s.video_views),
+        follower_delta: Math.round(s.follower_delta),
+        content_count:  s.content_count != null ? Math.round(s.content_count) : null,
+        region:         s.region         ?? null,
+        content_type_1: s.content_type_1 ?? null,
+        content_type_2: s.content_type_2 ?? null,
+        recorded_at:    s.recorded_at,
+      })))
+      if (err) return { error: `소셜 저장 실패: ${err}` }
     }
 
-    if (kpiType === 'costreaming') {
-      await supabase.from('costreaming_kpis').delete().in('event_id', uuids)
-      if (kpis.costreaming?.length) {
-        const err = await insertChunked('costreaming_kpis', kpis.costreaming.map(b => ({
-          event_id:            toUUID(b.event_id),
-          platform:            b.platform            ?? null,
-          channel_count:       b.channel_count       ?? null,
-          co_streamer_count:   b.co_streamer_count   ?? null,
-          co_streamer_viewers: b.co_streamer_viewers ?? null,
-          hours_watched:       b.hours_watched       ?? null,
-          coverage_regions:    b.coverage_regions    ?? null,
-          clip_views:          b.clip_views          ?? null,
-          region:              b.region              ?? null,
-          acv:                 b.acv                 ?? null,
-          cost_usd:            b.cost_usd            ?? null,
-          recorded_at:         b.recorded_at,
-        })))
-        if (err) return { error: `코스트리밍 저장 실패: ${err}` }
-      }
+    if (kpiType === 'costreaming' && kpis.costreaming?.length) {
+      const err = await insertChunked('costreaming_kpis', kpis.costreaming.map(b => ({
+        event_id:            toUUID(b.event_id),
+        platform:            b.platform            ?? null,
+        channel_count:       b.channel_count       ?? null,
+        co_streamer_count:   b.co_streamer_count   ?? null,
+        co_streamer_viewers: b.co_streamer_viewers ?? null,
+        hours_watched:       b.hours_watched       ?? null,
+        coverage_regions:    b.coverage_regions    ?? null,
+        clip_views:          b.clip_views          ?? null,
+        region:              b.region              ?? null,
+        acv:                 b.acv                 ?? null,
+        cost_usd:            b.cost_usd            ?? null,
+        recorded_at:         b.recorded_at,
+      })))
+      if (err) return { error: `코스트리밍 저장 실패: ${err}` }
     }
 
     return { error: null }
