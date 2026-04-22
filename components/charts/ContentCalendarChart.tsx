@@ -121,59 +121,10 @@ export function ContentCalendarChart({ data, year, lang }: Props) {
       <div className="overflow-x-auto">
         <div style={{ minWidth }}>
 
-          {/* 상단 패널: Content Count 바 차트 */}
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={weeks} margin={{ top: 20, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1F2937" vertical={false} />
-
-              {visibleBands.map(ev => (
-                <ReferenceArea
-                  key={ev.event_id}
-                  x1={ev.startWk}
-                  x2={ev.endWk}
-                  fill={ev.color}
-                  fillOpacity={0.1}
-                  stroke={ev.color}
-                  strokeOpacity={0.25}
-                  label={{ value: ev.display_name, position: 'insideTopLeft', fontSize: 9, fill: ev.color, dy: -14 }}
-                />
-              ))}
-
-              {/* X축 레이블 숨김 (하단 패널과 공유) */}
-              <XAxis
-                dataKey="wk"
-                tick={false}
-                axisLine={{ stroke: '#374151' }}
-                tickLine={false}
-                height={4}
-              />
-              <YAxis
-                tick={{ fontSize: 10, fill: '#6B7280' }}
-                axisLine={false}
-                tickLine={false}
-                tickFormatter={fmt}
-                width={40}
-                allowDecimals={false}
-              />
-              <Tooltip
-                content={<ContentTooltip weeks={weeks} events={events} />}
-                cursor={{ fill: '#ffffff08' }}
-              />
-              <Bar
-                dataKey="content"
-                name="Contents"
-                fill="#3B82F6"
-                fillOpacity={0.75}
-                radius={[2, 2, 0, 0]}
-                maxBarSize={14}
-              />
-            </BarChart>
-          </ResponsiveContainer>
-
-          {/* 하단 패널: PCCV 라인 차트 (데이터 있을 때만) */}
+          {/* 상단 패널: PCCV 라인 차트 (데이터 있을 때만) */}
           {hasPccv && (
-            <ResponsiveContainer width="100%" height={130}>
-              <LineChart data={weeks} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+            <ResponsiveContainer width="100%" height={150}>
+              <LineChart data={weeks} margin={{ top: 16, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1F2937" vertical={false} />
 
                 {visibleBands.map(ev => (
@@ -190,10 +141,10 @@ export function ContentCalendarChart({ data, year, lang }: Props) {
 
                 <XAxis
                   dataKey="wk"
-                  tick={{ fontSize: 9, fill: '#6B7280' }}
-                  interval={xInterval}
+                  tick={false}
                   axisLine={{ stroke: '#374151' }}
                   tickLine={false}
+                  height={4}
                 />
                 <YAxis
                   tick={{ fontSize: 10, fill: '#F59E0B' }}
@@ -219,20 +170,52 @@ export function ContentCalendarChart({ data, year, lang }: Props) {
             </ResponsiveContainer>
           )}
 
-          {/* PCCV 없을 때 X축만 표시 */}
-          {!hasPccv && (
-            <ResponsiveContainer width="100%" height={24}>
-              <BarChart data={weeks} margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
-                <XAxis
-                  dataKey="wk"
-                  tick={{ fontSize: 9, fill: '#6B7280' }}
-                  interval={xInterval}
-                  axisLine={{ stroke: '#374151' }}
-                  tickLine={false}
+          {/* 하단 패널: Content Count 바 차트 */}
+          <ResponsiveContainer width="100%" height={180}>
+            <BarChart data={weeks} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#1F2937" vertical={false} />
+
+              {visibleBands.map(ev => (
+                <ReferenceArea
+                  key={ev.event_id}
+                  x1={ev.startWk}
+                  x2={ev.endWk}
+                  fill={ev.color}
+                  fillOpacity={0.1}
+                  stroke={ev.color}
+                  strokeOpacity={0.25}
                 />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
+              ))}
+
+              <XAxis
+                dataKey="wk"
+                tick={{ fontSize: 9, fill: '#6B7280' }}
+                interval={xInterval}
+                axisLine={{ stroke: '#374151' }}
+                tickLine={false}
+              />
+              <YAxis
+                tick={{ fontSize: 10, fill: '#6B7280' }}
+                axisLine={false}
+                tickLine={false}
+                tickFormatter={fmt}
+                width={40}
+                allowDecimals={false}
+              />
+              <Tooltip
+                content={<ContentTooltip weeks={weeks} events={events} />}
+                cursor={{ fill: '#ffffff08' }}
+              />
+              <Bar
+                dataKey="content"
+                name="Contents"
+                fill="#3B82F6"
+                fillOpacity={0.75}
+                radius={[2, 2, 0, 0]}
+                maxBarSize={14}
+              />
+            </BarChart>
+          </ResponsiveContainer>
 
         </div>
       </div>
