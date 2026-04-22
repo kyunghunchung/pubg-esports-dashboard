@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import Link from 'next/link'
 import {
   getViewershipTotal,
@@ -51,6 +51,19 @@ export default function DashboardPage() {
   function updateSelectedIds(ids: string[]) {
     setSelectedIds(ids)
   }
+
+  // Supabase에서 이벤트 마스터 로드 완료 후 최신 연도로 재설정
+  const masterBootstrapped = useRef(false)
+  useEffect(() => {
+    if (!masterBootstrapped.current) {
+      masterBootstrapped.current = true
+      return // 첫 번째 호출은 정적 EVENT_MASTER이므로 skip
+    }
+    const years = getAllYears()
+    if (!years.length) return
+    const globals = getGlobalEventsByYear(years[0])
+    if (globals.length > 0) setSelectedIds([globals[globals.length - 1].event_id])
+  }, [masterEntries]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!data?.events.length || !selectedIds.length) return
