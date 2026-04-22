@@ -4,7 +4,6 @@ import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import {
   getViewershipTotal,
-  getViewershipByPlatform,
   getViewershipDataType,
   getContentAggregated,
   getSocialAggregatedByPlatform,
@@ -25,10 +24,6 @@ import { TournamentFilter } from '@/components/dashboard/TournamentFilter'
 import { cn } from '@/lib/utils'
 import dynamic from 'next/dynamic'
 
-const PlatformCcvChart = dynamic(
-  () => import('@/components/charts/PlatformCcvChart').then(m => m.PlatformCcvChart),
-  { ssr: false },
-)
 const SocialPlatformChart = dynamic(
   () => import('@/components/charts/SocialPlatformChart').then(m => m.SocialPlatformChart),
   { ssr: false },
@@ -56,7 +51,7 @@ export default function DashboardPage() {
     } catch { /* ignore */ }
     return []
   })
-  const [trendPeriod, setTrendPeriod] = useState<'monthly' | 'weekly'>('monthly')
+  const trendPeriod = 'weekly' as const
   const [trendMetric, setTrendMetric] = useState<'impressions' | 'content_count' | 'engagements' | 'video_views'>('content_count')
   const [calendarYear, setCalendarYear] = useState<number>(() => new Date().getFullYear())
 
@@ -73,7 +68,7 @@ export default function DashboardPage() {
     if (!stillValid) {
       const latestYear = years[0]
       const globals = getGlobalEventsByYear(latestYear)
-      updateSelectedIds(globals.length > 0 ? [globals[0].event_id] : [])
+      updateSelectedIds(globals.length > 0 ? [globals[globals.length - 1].event_id] : [])
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -85,8 +80,8 @@ export default function DashboardPage() {
       const years = getAllYears()
       const latestYear = years[0]
       const globals = getGlobalEventsByYear(latestYear)
-      const firstValid = globals.find(e => validNames.has(e.event_id))
-      updateSelectedIds(firstValid ? [firstValid.event_id] : [data.events[0].name])
+      const lastValid = [...globals].reverse().find(e => validNames.has(e.event_id))
+      updateSelectedIds(lastValid ? [lastValid.event_id] : [data.events[0].name])
     }
   }, [data]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -118,7 +113,6 @@ export default function DashboardPage() {
   const singleUUID = singleEventId ? (toUUID(singleEventId) ?? null) : null
 
   const total          = singleUUID ? getViewershipTotal(data!, singleUUID, officialOnly) : null
-  const byPlatform     = singleUUID ? getViewershipByPlatform(data!, singleUUID, officialOnly) : []
   const viewershipType = singleUUID ? getViewershipDataType(data!, singleUUID) : 'none'
   const isTypeBData    = viewershipType === 'B'
 
@@ -126,8 +120,7 @@ export default function DashboardPage() {
   const accv           = total?.acv ?? 0
   const stabilityRatio = pccv > 0 ? Math.round((accv / pccv) * 100) : null
 
-  const content        = data ? getContentAggregated(data, selectedUUIDs) : { impressions: 0, content_count: 0 }
-  const ccvChartData   = byPlatform.map(v => ({ platform: v.platform, peak_ccv: v.peak_ccv ?? 0 }))
+  const content        = data ? getContentAggregated(data, selectedUUIDs) : { impressions: 0, content_count: 0, video_views: 0, engagements: 0 }
   const socialChartData = data ? getSocialAggregatedByPlatform(data, selectedUUIDs) : []
 
   const uploadedDate = data
@@ -267,70 +260,35 @@ export default function DashboardPage() {
           <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-widest">
             Contents
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <KpiCard label="Number of Contents" value={content.content_count} unit={lang === 'ko' ? '건' : ''} />
             <KpiCard label="Impression"         value={content.impressions}   unit={lang === 'ko' ? '회' : ''} />
+            <KpiCard label="Views"              value={content.video_views}   unit={lang === 'ko' ? '회' : ''} />
+            <KpiCard label="Engagement"         value={content.engagements}   unit={lang === 'ko' ? '회' : ''} />
           </div>
 
-          {/* 기간별 트렌드 */}
+          {/* 기간별 트렌드 (주간) */}
           {hasDateData ? (
             <div className="bg-brand-surface border border-brand-border rounded-xl p-5 space-y-4 mt-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="text-sm font-semibold text-gray-300">{t('trendTitle')}</p>
-                <div className="flex items-center gap-2">
-                  <div className="flex rounded-lg border border-brand-border overflow-hidden">
-                    {(['monthly', 'weekly'] as const).map(p => (
-                      <button
-                        key={p}
-                        onClick={() => setTrendPeriod(p)}
-                        className={cn(
-                          'px-3 py-1.5 text-xs font-medium transition-colors',
-                          trendPeriod === p ? 'bg-brand-accent text-white' : 'text-gray-400 hover:text-white'
-                        )}
-                      >
-                        {p === 'monthly' ? t('monthly') : t('weekly')}
-                      </button>
-                    ))}
-                  </div>
-                  <select
-                    value={trendMetric}
-                    onChange={e => setTrendMetric(e.target.value as typeof trendMetric)}
-                    className="bg-brand-bg border border-brand-border rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-brand-accent"
-                  >
-                    <option value="content_count">Number of Contents</option>
-                    <option value="impressions">Impression</option>
-                    <option value="video_views">Views</option>
-                    <option value="engagements">Engagement</option>
-                  </select>
-                </div>
+                <select
+                  value={trendMetric}
+                  onChange={e => setTrendMetric(e.target.value as typeof trendMetric)}
+                  className="bg-brand-bg border border-brand-border rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-brand-accent"
+                >
+                  <option value="content_count">Number of Contents</option>
+                  <option value="impressions">Impression</option>
+                  <option value="video_views">Views</option>
+                  <option value="engagements">Engagement</option>
+                </select>
               </div>
               <ContentsTrendChart data={trendData} metric={trendMetric} period={trendPeriod} />
             </div>
           ) : null}
         </section>
 
-        {/* ── 차트 1: 플랫폼별 PCCV ── */}
-        {isSingleEvent ? (
-          isTypeBData && ccvChartData.length > 0 ? (
-            <section className="bg-brand-surface border border-brand-border rounded-xl p-6">
-              <div className="mb-4">
-                <h2 className="text-sm font-semibold text-gray-300">{t('pccvByPlatform')}</h2>
-                <p className="text-xs text-gray-500 mt-0.5">{singleEventId ? getDisplayName(singleEventId) : ''}</p>
-              </div>
-              <PlatformCcvChart data={ccvChartData} />
-            </section>
-          ) : viewershipType === 'A' ? (
-            <section className="bg-brand-surface border border-brand-border rounded-xl p-6 flex items-center justify-center h-32">
-              <p className="text-sm text-gray-500">{t('noPerPlatformData')}</p>
-            </section>
-          ) : null
-        ) : (
-          <section className="bg-brand-surface border border-brand-border rounded-xl p-6 flex items-center justify-center h-32">
-            <p className="text-sm text-gray-500">{t('selectForChart')}</p>
-          </section>
-        )}
-
-        {/* ── 차트 2: 소셜 채널별 성과 ── */}
+        {/* ── 소셜 채널별 성과 ── */}
         {socialChartData.length > 0 && (
           <section className="bg-brand-surface border border-brand-border rounded-xl p-6">
             <div className="mb-4">

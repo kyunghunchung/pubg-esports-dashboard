@@ -282,51 +282,6 @@ export default function CostreamingPage() {
           </section>
         </div>
 
-        {/* 상세 테이블 */}
-        {data && data.costreaming.filter(b => filteredUUIDs.includes(b.event_id)).length > 0 && (
-          <section className="bg-brand-surface border border-brand-border rounded-xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-brand-border">
-              <h2 className="text-sm font-semibold text-gray-300">{t('coDetailsTitle')}</h2>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-brand-border">
-                    <th className="px-5 py-3 text-left text-gray-400 font-medium">{t('colEvent')}</th>
-                    <th className="px-5 py-3 text-right text-gray-400 font-medium">{t('colStreamers')}</th>
-                    <th className="px-5 py-3 text-right text-gray-400 font-medium">{t('colPeakViewTotal')}</th>
-                    <th className="px-5 py-3 text-right text-gray-400 font-medium">{t('colRegion')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.costreaming
-                    .filter(b => {
-                      if (!filteredUUIDs.includes(b.event_id)) return false
-                      if (filterRegion && b.region !== filterRegion) return false
-                      return true
-                    })
-                    .map((row, i) => {
-                      const eventName = data.events.find(e => e.id === row.event_id)?.name
-                      return (
-                        <tr key={i} className="border-b border-brand-border last:border-0 hover:bg-white/5">
-                          <td className="px-5 py-3 text-white font-medium">
-                            {eventName ? getDisplayName(eventName) : '—'}
-                          </td>
-                          <td className="px-5 py-3 text-right text-gray-300 tabular-nums">
-                            {row.co_streamer_count != null ? formatNumber(row.co_streamer_count) : '—'}
-                          </td>
-                          <td className="px-5 py-3 text-right text-gray-300 tabular-nums">
-                            {row.co_streamer_viewers != null ? formatNumber(row.co_streamer_viewers) : '—'}
-                          </td>
-                          <td className="px-5 py-3 text-right text-gray-300">{row.region ?? '—'}</td>
-                        </tr>
-                      )
-                    })}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        )}
 
       </div>
     </main>

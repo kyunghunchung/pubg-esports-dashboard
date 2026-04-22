@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import {
-  ComposedChart, Bar, Line, XAxis, YAxis, Tooltip,
+  BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip,
   CartesianGrid, ResponsiveContainer, ReferenceArea,
 } from 'recharts'
 import { formatNumber } from '@/lib/utils'
@@ -20,7 +20,7 @@ function fmt(n: number): string {
   return String(n)
 }
 
-function CustomTooltip({
+function ContentTooltip({
   active, payload, label, weeks, events,
 }: {
   active?: boolean
@@ -36,7 +36,32 @@ function CustomTooltip({
     <div className="bg-gray-900 border border-gray-700 rounded-lg p-3 text-xs space-y-1 min-w-[160px]">
       <p className="text-gray-400 font-medium">{label}  {week?.weekStart?.slice(5).replace('-', '/')} ~ {week?.weekEnd?.slice(5).replace('-', '/')}</p>
       {band && <p style={{ color: band.color }} className="font-semibold">{band.display_name}</p>}
-      {payload.map(p => p.value > 0 || p.name === 'PCCV' ? (
+      {payload.map(p => p.value > 0 ? (
+        <p key={p.name} style={{ color: p.color }}>
+          {p.name}: {formatNumber(p.value)}
+        </p>
+      ) : null)}
+    </div>
+  )
+}
+
+function PccvTooltip({
+  active, payload, label, weeks, events,
+}: {
+  active?: boolean
+  payload?: { name: string; value: number; color: string }[]
+  label?: string
+  weeks: ContentCalendarWeek[]
+  events: ContentCalendarBand[]
+}) {
+  if (!active || !payload?.length || !label) return null
+  const week = weeks.find(w => w.wk === label)
+  const band = events.find(e => e.startWk <= label && label <= e.endWk)
+  return (
+    <div className="bg-gray-900 border border-gray-700 rounded-lg p-3 text-xs space-y-1 min-w-[160px]">
+      <p className="text-gray-400 font-medium">{label}  {week?.weekStart?.slice(5).replace('-', '/')} ~ {week?.weekEnd?.slice(5).replace('-', '/')}</p>
+      {band && <p style={{ color: band.color }} className="font-semibold">{band.display_name}</p>}
+      {payload.map(p => p.value > 0 ? (
         <p key={p.name} style={{ color: p.color }}>
           {p.name}: {formatNumber(p.value)}
         </p>
@@ -61,10 +86,12 @@ export function ContentCalendarChart({ data, year, lang }: Props) {
   }
 
   const visibleBands = events.filter(e => !hiddenBands.has(e.event_id))
+  const minWidth = Math.max(900, weeks.length * 16)
+  const xInterval = 3
 
   return (
     <div className="space-y-3">
-      {/* 이벤트 범례 (클릭으로 밴드 토글) */}
+      {/* 이벤트 범례 */}
       {events.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {events.map(ev => (
@@ -77,8 +104,8 @@ export function ContentCalendarChart({ data, year, lang }: Props) {
               })}
               className="flex items-center gap-1.5 px-2 py-1 rounded-md border text-xs transition-all"
               style={{
-                borderColor: hiddenBands.has(ev.event_id) ? '#374151' : ev.color,
-                color:       hiddenBands.has(ev.event_id) ? '#6B7280' : ev.color,
+                borderColor:     hiddenBands.has(ev.event_id) ? '#374151' : ev.color,
+                color:           hiddenBands.has(ev.event_id) ? '#6B7280' : ev.color,
                 backgroundColor: hiddenBands.has(ev.event_id) ? 'transparent' : `${ev.color}15`,
               }}
             >
@@ -90,14 +117,15 @@ export function ContentCalendarChart({ data, year, lang }: Props) {
         </div>
       )}
 
-      {/* 차트 */}
+      {/* 차트 — overflow-x-auto로 가로 스크롤 공유 */}
       <div className="overflow-x-auto">
-        <div style={{ minWidth: Math.max(900, weeks.length * 16) }}>
-          <ResponsiveContainer width="100%" height={260}>
-            <ComposedChart data={weeks} margin={{ top: 24, right: hasPccv ? 56 : 8, left: 0, bottom: 0 }}>
+        <div style={{ minWidth }}>
+
+          {/* 상단 패널: Content Count 바 차트 */}
+          <ResponsiveContainer width="100%" height={180}>
+            <BarChart data={weeks} margin={{ top: 20, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#1F2937" vertical={false} />
 
-              {/* 이벤트 밴드 */}
               {visibleBands.map(ev => (
                 <ReferenceArea
                   key={ev.event_id}
@@ -111,16 +139,15 @@ export function ContentCalendarChart({ data, year, lang }: Props) {
                 />
               ))}
 
+              {/* X축 레이블 숨김 (하단 패널과 공유) */}
               <XAxis
                 dataKey="wk"
-                tick={{ fontSize: 9, fill: '#6B7280' }}
-                interval={3}
+                tick={false}
                 axisLine={{ stroke: '#374151' }}
                 tickLine={false}
+                height={4}
               />
               <YAxis
-                yAxisId="content"
-                orientation="left"
                 tick={{ fontSize: 10, fill: '#6B7280' }}
                 axisLine={false}
                 tickLine={false}
@@ -128,27 +155,11 @@ export function ContentCalendarChart({ data, year, lang }: Props) {
                 width={40}
                 allowDecimals={false}
               />
-              {hasPccv && (
-                <YAxis
-                  yAxisId="pccv"
-                  orientation="right"
-                  tick={{ fontSize: 10, fill: '#F59E0B' }}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={fmt}
-                  width={52}
-                />
-              )}
-
               <Tooltip
-                content={
-                  <CustomTooltip weeks={weeks} events={events} />
-                }
+                content={<ContentTooltip weeks={weeks} events={events} />}
                 cursor={{ fill: '#ffffff08' }}
               />
-
               <Bar
-                yAxisId="content"
                 dataKey="content"
                 name="Contents"
                 fill="#3B82F6"
@@ -156,25 +167,77 @@ export function ContentCalendarChart({ data, year, lang }: Props) {
                 radius={[2, 2, 0, 0]}
                 maxBarSize={14}
               />
+            </BarChart>
+          </ResponsiveContainer>
 
-              {hasPccv && (
+          {/* 하단 패널: PCCV 라인 차트 (데이터 있을 때만) */}
+          {hasPccv && (
+            <ResponsiveContainer width="100%" height={130}>
+              <LineChart data={weeks} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1F2937" vertical={false} />
+
+                {visibleBands.map(ev => (
+                  <ReferenceArea
+                    key={ev.event_id}
+                    x1={ev.startWk}
+                    x2={ev.endWk}
+                    fill={ev.color}
+                    fillOpacity={0.08}
+                    stroke={ev.color}
+                    strokeOpacity={0.2}
+                  />
+                ))}
+
+                <XAxis
+                  dataKey="wk"
+                  tick={{ fontSize: 9, fill: '#6B7280' }}
+                  interval={xInterval}
+                  axisLine={{ stroke: '#374151' }}
+                  tickLine={false}
+                />
+                <YAxis
+                  tick={{ fontSize: 10, fill: '#F59E0B' }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={fmt}
+                  width={40}
+                />
+                <Tooltip
+                  content={<PccvTooltip weeks={weeks} events={events} />}
+                  cursor={{ stroke: '#ffffff20' }}
+                />
                 <Line
-                  yAxisId="pccv"
                   dataKey="pccv"
                   name="PCCV"
                   stroke="#F59E0B"
                   strokeWidth={2}
-                  dot={{ fill: '#F59E0B', r: 4, strokeWidth: 0 }}
-                  activeDot={{ r: 6 }}
+                  dot={{ fill: '#F59E0B', r: 3, strokeWidth: 0 }}
+                  activeDot={{ r: 5 }}
                   connectNulls={false}
                 />
-              )}
-            </ComposedChart>
-          </ResponsiveContainer>
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+
+          {/* PCCV 없을 때 X축만 표시 */}
+          {!hasPccv && (
+            <ResponsiveContainer width="100%" height={24}>
+              <BarChart data={weeks} margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
+                <XAxis
+                  dataKey="wk"
+                  tick={{ fontSize: 9, fill: '#6B7280' }}
+                  interval={xInterval}
+                  axisLine={{ stroke: '#374151' }}
+                  tickLine={false}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+
         </div>
       </div>
 
-      {/* 하단 설명 */}
+      {/* 범례 */}
       <div className="flex items-center gap-4 text-xs text-gray-600">
         <span className="flex items-center gap-1.5">
           <span className="w-3 h-3 rounded-sm bg-blue-500 opacity-75" />

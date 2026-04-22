@@ -12,11 +12,17 @@ import {
 } from '@/lib/config/event-master'
 import { KpiCard } from '@/components/kpi/KpiCard'
 import { getSocialTrend, hasSocialDateData } from '@/lib/store'
-import { formatNumber, cn } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 import dynamic from 'next/dynamic'
+import type { SocialKpi } from '@/types'
+import type { BreakdownPoint } from '@/components/charts/BreakdownBarChart'
 
 const ContentsTrendChart = dynamic(
   () => import('@/components/charts/ContentsTrendChart').then(m => m.ContentsTrendChart),
+  { ssr: false },
+)
+const BreakdownBarChart = dynamic(
+  () => import('@/components/charts/BreakdownBarChart').then(m => m.BreakdownBarChart),
   { ssr: false },
 )
 
@@ -59,6 +65,21 @@ function FilterSelect({
   )
 }
 
+function buildBreakdown(rows: SocialKpi[], key: 'region' | 'platform' | 'content_type_1'): BreakdownPoint[] {
+  const map = new Map<string, BreakdownPoint>()
+  for (const row of rows) {
+    const name = (row[key] as string | null | undefined) || ''
+    if (!name) continue
+    const cur = map.get(name) ?? { name, content_count: 0, impressions: 0, video_views: 0, engagements: 0 }
+    cur.content_count += row.content_count ?? 0
+    cur.impressions   += row.impressions
+    cur.video_views   += row.video_views
+    cur.engagements   += row.engagements
+    map.set(name, cur)
+  }
+  return Array.from(map.values())
+}
+
 export default function ContentsPage() {
   const { data, loading, fetchError, refetch } = useDashboardData()
   const masterEntries = useInitEventMaster()
@@ -71,7 +92,7 @@ export default function ContentsPage() {
   const [filterType1,    setFilterType1]    = useState('')
   const [filterType2,    setFilterType2]    = useState('')
 
-  const [trendPeriod, setTrendPeriod] = useState<'monthly' | 'weekly'>('monthly')
+  const trendPeriod = 'weekly' as const
   const [trendMetric, setTrendMetric] = useState<'impressions' | 'content_count' | 'engagements' | 'video_views'>('content_count')
 
   const yearOptions = useMemo(() => getAllYears(), [masterEntries])
@@ -142,7 +163,11 @@ export default function ContentsPage() {
       content_type_1: filterType1    || undefined,
       content_type_2: filterType2    || undefined,
     })
-  }, [data, filteredUUIDs, trendPeriod, filterPlatform, filterRegion, filterType1, filterType2, hasDateData])
+  }, [data, filteredUUIDs, filterPlatform, filterRegion, filterType1, filterType2, hasDateData])
+
+  const regionBreakdown    = useMemo(() => buildBreakdown(filteredSocial, 'region'), [filteredSocial])
+  const platformBreakdown  = useMemo(() => buildBreakdown(filteredSocial, 'platform'), [filteredSocial])
+  const type1Breakdown     = useMemo(() => buildBreakdown(filteredSocial, 'content_type_1'), [filteredSocial])
 
   if (loading && !data) return <div className="min-h-screen bg-brand-bg" />
 
@@ -248,14 +273,15 @@ export default function ContentsPage() {
         {/* KPI 카드 */}
         <section className="space-y-3">
           <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-widest">{t('kpiSectionTitle')}</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <KpiCard label="Number of Contents" value={kpi.content_count} unit={lang === 'ko' ? '건' : ''} />
+            <KpiCard label="Impression"         value={kpi.impressions}   unit={lang === 'ko' ? '회' : ''} />
             <KpiCard label="Views"              value={kpi.video_views}   unit={lang === 'ko' ? '회' : ''} />
             <KpiCard label="Engagement"         value={kpi.engagements}   unit={lang === 'ko' ? '회' : ''} />
           </div>
         </section>
 
-        {/* 기간별 트렌드 */}
+        {/* 기간별 트렌드 (주간) */}
         {hasDateData ? (
           <section className="bg-brand-surface border border-brand-border rounded-xl p-6 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -263,32 +289,16 @@ export default function ContentsPage() {
                 <h2 className="text-sm font-semibold text-gray-300">{t('trendTitle')}</h2>
                 <p className="text-xs text-gray-500 mt-0.5">{t('trendDateHint')}</p>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="flex rounded-lg border border-brand-border overflow-hidden">
-                  {(['monthly', 'weekly'] as const).map(p => (
-                    <button
-                      key={p}
-                      onClick={() => setTrendPeriod(p)}
-                      className={cn(
-                        'px-3 py-1.5 text-xs font-medium transition-colors',
-                        trendPeriod === p ? 'bg-brand-accent text-white' : 'text-gray-400 hover:text-white'
-                      )}
-                    >
-                      {p === 'monthly' ? t('monthly') : t('weekly')}
-                    </button>
-                  ))}
-                </div>
-                <select
-                  value={trendMetric}
-                  onChange={e => setTrendMetric(e.target.value as typeof trendMetric)}
-                  className="bg-brand-bg border border-brand-border rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-brand-accent"
-                >
-                  <option value="content_count">Number of Contents</option>
-                  <option value="impressions">Impression</option>
-                  <option value="video_views">Views</option>
-                  <option value="engagements">Engagement</option>
-                </select>
-              </div>
+              <select
+                value={trendMetric}
+                onChange={e => setTrendMetric(e.target.value as typeof trendMetric)}
+                className="bg-brand-bg border border-brand-border rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-brand-accent"
+              >
+                <option value="content_count">Number of Contents</option>
+                <option value="impressions">Impression</option>
+                <option value="video_views">Views</option>
+                <option value="engagements">Engagement</option>
+              </select>
             </div>
             <ContentsTrendChart data={trendData} metric={trendMetric} period={trendPeriod} />
           </section>
@@ -304,51 +314,27 @@ export default function ContentsPage() {
           )
         )}
 
-        {/* 플랫폼별 상세 테이블 */}
-        {filteredSocial.length > 0 ? (
-          <section className="bg-brand-surface border border-brand-border rounded-xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-brand-border">
-              <h2 className="text-sm font-semibold text-gray-300">{t('platformDetails')}</h2>
-              <p className="text-xs text-gray-500 mt-0.5">
-                {lang === 'ko'
-                  ? `총 ${filteredSocial.length}${t('dataRows')}`
-                  : `${filteredSocial.length}${t('dataRows')}`}
-              </p>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-brand-border">
-                    <th className="px-5 py-3 text-left text-gray-400 font-medium">{t('colEvent')}</th>
-                    <th className="px-5 py-3 text-left text-gray-400 font-medium">{t('colPlatform')}</th>
-                    <th className="px-5 py-3 text-right text-gray-400 font-medium">{t('colContents')}</th>
-                    <th className="px-5 py-3 text-right text-gray-400 font-medium">{t('colImpression')}</th>
-                    <th className="px-5 py-3 text-right text-gray-400 font-medium">{t('colViews')}</th>
-                    <th className="px-5 py-3 text-right text-gray-400 font-medium">{t('colEngagement')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredSocial.map((row, i) => {
-                    const eventName = data?.events.find(e => e.id === row.event_id)?.name
-                    return (
-                      <tr key={i} className="border-b border-brand-border last:border-0 hover:bg-white/5">
-                        <td className="px-5 py-3 text-gray-400 text-xs">{eventName ? getDisplayName(eventName) : '—'}</td>
-                        <td className="px-5 py-3 text-white font-medium capitalize">{row.platform}</td>
-                        <td className="px-5 py-3 text-right text-gray-300 tabular-nums">{row.content_count != null ? formatNumber(row.content_count) : '—'}</td>
-                        <td className="px-5 py-3 text-right text-gray-300 tabular-nums">{formatNumber(row.impressions)}</td>
-                        <td className="px-5 py-3 text-right text-gray-300 tabular-nums">{formatNumber(row.video_views)}</td>
-                        <td className="px-5 py-3 text-right text-gray-300 tabular-nums">{formatNumber(row.engagements)}</td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        ) : (
-          <div className="text-center py-16 text-gray-500 text-sm">
-            {t('noMatchingData')}
-          </div>
+        {/* 언어별 차트 */}
+        <BreakdownBarChart
+          title={lang === 'ko' ? '언어별 성과' : 'Performance by Language'}
+          data={regionBreakdown}
+          lang={lang}
+        />
+
+        {/* 플랫폼별 차트 */}
+        <BreakdownBarChart
+          title={lang === 'ko' ? '플랫폼별 성과' : 'Performance by Platform'}
+          data={platformBreakdown}
+          lang={lang}
+        />
+
+        {/* 콘텐츠 종류별 차트 */}
+        {type1Breakdown.length > 0 && (
+          <BreakdownBarChart
+            title={lang === 'ko' ? '콘텐츠 종류별 성과' : 'Performance by Content Type'}
+            data={type1Breakdown}
+            lang={lang}
+          />
         )}
 
       </div>

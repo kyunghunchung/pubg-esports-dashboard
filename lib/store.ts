@@ -94,12 +94,14 @@ export function getSocialByPlatform(data: DashboardData, eventId: string): Socia
   return data.social.filter(s => s.event_id === eventId)
 }
 
-/** 복수 이벤트에 걸친 콘텐츠 KPI 집계 (노출 합산, 콘텐츠 발행 수 합산) */
+/** 복수 이벤트에 걸친 콘텐츠 KPI 집계 */
 export function getContentAggregated(data: DashboardData, eventIds: string[]) {
   const rows = data.social.filter(s => eventIds.includes(s.event_id))
   return {
     impressions:   rows.reduce((sum, r) => sum + r.impressions, 0),
     content_count: rows.reduce((sum, r) => sum + (r.content_count ?? 0), 0),
+    video_views:   rows.reduce((sum, r) => sum + (r.video_views ?? 0), 0),
+    engagements:   rows.reduce((sum, r) => sum + (r.engagements ?? 0), 0),
   }
 }
 
