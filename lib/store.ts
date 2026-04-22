@@ -210,8 +210,13 @@ export function hasSocialDateData(data: DashboardData, eventIds: string[]): bool
 export function getCostreamingAggregated(data: DashboardData, eventIds: string[], region?: string) {
   let rows = data.costreaming.filter(b => eventIds.includes(b.event_id))
   if (region) rows = rows.filter(b => b.region === region)
+  // 고유 스트리머 수: streamer_name 있으면 중복 제거, 없으면 co_streamer_count 합산(구 데이터 호환)
+  const namedStreamers = rows.map(r => r.streamer_name).filter((n): n is string => Boolean(n))
+  const uniqueStreamerCount = namedStreamers.length > 0
+    ? new Set(namedStreamers).size
+    : rows.reduce((sum, r) => sum + (r.co_streamer_count ?? 0), 0)
   return {
-    streamer_count:  rows.reduce((sum, r) => sum + (r.co_streamer_count ?? 0), 0),
+    streamer_count:  uniqueStreamerCount,
     peak_view_sum:   rows.reduce((sum, r) => sum + (r.co_streamer_viewers ?? 0), 0),
     hours_watched:   rows.reduce((sum, r) => sum + (r.hours_watched ?? 0), 0),
     total_cost_usd:  rows.reduce((sum, r) => sum + (r.cost_usd ?? 0), 0),

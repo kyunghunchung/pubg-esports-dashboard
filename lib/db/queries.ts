@@ -110,6 +110,7 @@ export async function saveToSupabase(data: DashboardData): Promise<{ error: stri
       const err = await insertChunked('costreaming_kpis', data.costreaming.map(b => ({
         event_id:            toSupabaseId(b.event_id),
         platform:            b.platform            ?? null,
+        streamer_name:       b.streamer_name       ?? null,
         channel_count:       b.channel_count       ?? null,
         co_streamer_count:   b.co_streamer_count   ?? null,
         co_streamer_viewers: b.co_streamer_viewers ?? null,
@@ -236,6 +237,7 @@ export async function saveTypedKpisToSupabase(
       const err = await insertChunked('costreaming_kpis', kpis.costreaming.map(b => ({
         event_id:            toUUID(b.event_id),
         platform:            b.platform            ?? null,
+        streamer_name:       b.streamer_name       ?? null,
         channel_count:       b.channel_count       ?? null,
         co_streamer_count:   b.co_streamer_count   ?? null,
         co_streamer_viewers: b.co_streamer_viewers ?? null,

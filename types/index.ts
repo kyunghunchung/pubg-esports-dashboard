@@ -55,6 +55,7 @@ export interface CostreamingKpi {
   id: string
   event_id: string
   platform?: string             // 플랫폼 (집계 단위)
+  streamer_name?: string        // 스트리머 이름 (고유 스트리머 중복 제거용)
   channel_count?: number
   co_streamer_count?: number
   co_streamer_viewers?: number  // Peak View 합산

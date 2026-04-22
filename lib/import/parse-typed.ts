@@ -251,9 +251,9 @@ export function parseCostreamingFile(buffer: ArrayBuffer): TypedParseResult {
 
   type Agg = {
     master: EventMasterEntry
+    streamer_name: string
     region: string
     platform: string
-    streamer_count: number
     peak_view_sum: number
     accv_sum: number
     hours_watched_sum: number
@@ -270,14 +270,17 @@ export function parseCostreamingFile(buffer: ArrayBuffer): TypedParseResult {
       events.push(masterToEvent(master))
     }
 
-    const region      = str(raw['Region / Language'] ?? raw['Region/Language'])
-    const platformRaw = str(raw['Platform'] ?? raw['platform'])
-    const platform    = (platformRaw ? (normalizePlatform(platformRaw) ?? platformRaw) : '')
-    const key         = `${master.event_id}::${region}::${platform}`
-    const cur         = agg.get(key) ?? {
-      master, region, platform,
-      streamer_count: 0, peak_view_sum: 0,
-      accv_sum: 0, hours_watched_sum: 0, cost_usd: 0,
+    const streamerName = str(raw['Streamer Name'] ?? raw['streamer_name'] ?? raw['Streamer'])
+    const region       = str(raw['Region / Language'] ?? raw['Region/Language'])
+    const platformRaw  = str(raw['Platform'] ?? raw['platform'])
+    const platform     = (platformRaw ? (normalizePlatform(platformRaw) ?? platformRaw) : '')
+    // 스트리머 이름이 있으면 스트리머별로 키잉, 없으면 기존 방식(event+region+platform)
+    const key = streamerName
+      ? `${master.event_id}::${streamerName}`
+      : `${master.event_id}::${region}::${platform}`
+    const cur = agg.get(key) ?? {
+      master, streamer_name: streamerName, region, platform,
+      peak_view_sum: 0, accv_sum: 0, hours_watched_sum: 0, cost_usd: 0,
     }
 
     const peakView     = numOrZero(raw['PCCV'])
@@ -287,7 +290,6 @@ export function parseCostreamingFile(buffer: ArrayBuffer): TypedParseResult {
     const currency     = str(raw['Currency']).toUpperCase()
     const costUsd      = currency === 'KRW' ? cost / 1300 : currency === 'JPY' ? cost / 155 : cost
 
-    cur.streamer_count++
     cur.peak_view_sum     += peakView
     cur.accv_sum          += accv
     cur.hours_watched_sum += hoursWatched
@@ -300,7 +302,8 @@ export function parseCostreamingFile(buffer: ArrayBuffer): TypedParseResult {
     id:                  crypto.randomUUID(),
     event_id:            a.master.event_id,
     platform:            a.platform || undefined,
-    co_streamer_count:   a.streamer_count,
+    streamer_name:       a.streamer_name || undefined,
+    co_streamer_count:   1,
     co_streamer_viewers: a.peak_view_sum,
     acv:                 a.accv_sum > 0 ? Math.round(a.accv_sum) : undefined,
     hours_watched:       a.hours_watched_sum > 0 ? Math.round(a.hours_watched_sum) : undefined,
