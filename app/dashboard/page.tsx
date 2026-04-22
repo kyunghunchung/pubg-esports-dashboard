@@ -39,12 +39,10 @@ export default function DashboardPage() {
 
   const [officialOnly, setOfficialOnly] = useState(false)
   const [selectedIds, setSelectedIds] = useState<string[]>(() => {
-    if (typeof window === 'undefined') return []
-    try {
-      const saved = localStorage.getItem('dashboard_selected_ids')
-      if (saved) return JSON.parse(saved) as string[]
-    } catch { /* ignore */ }
-    return []
+    const years = getAllYears()
+    if (!years.length) return []
+    const globals = getGlobalEventsByYear(years[0])
+    return globals.length > 0 ? [globals[globals.length - 1].event_id] : []
   })
   const trendPeriod = 'weekly' as const
   const [trendMetric, setTrendMetric] = useState<'impressions' | 'content_count' | 'engagements' | 'video_views'>('content_count')
@@ -52,20 +50,7 @@ export default function DashboardPage() {
 
   function updateSelectedIds(ids: string[]) {
     setSelectedIds(ids)
-    try { localStorage.setItem('dashboard_selected_ids', JSON.stringify(ids)) } catch { /* ignore */ }
   }
-
-  useEffect(() => {
-    const years = getAllYears()
-    if (!years.length) return
-    const allMasterIds = getAllYears().flatMap(y => getGlobalEventsByYear(y).map(e => e.event_id))
-    const stillValid = selectedIds.length > 0 && selectedIds.every(id => allMasterIds.includes(id))
-    if (!stillValid) {
-      const latestYear = years[0]
-      const globals = getGlobalEventsByYear(latestYear)
-      updateSelectedIds(globals.length > 0 ? [globals[globals.length - 1].event_id] : [])
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!data?.events.length || !selectedIds.length) return
@@ -73,8 +58,7 @@ export default function DashboardPage() {
     const hasMatch = selectedIds.some(id => validNames.has(id))
     if (!hasMatch) {
       const years = getAllYears()
-      const latestYear = years[0]
-      const globals = getGlobalEventsByYear(latestYear)
+      const globals = getGlobalEventsByYear(years[0])
       const lastValid = [...globals].reverse().find(e => validNames.has(e.event_id))
       updateSelectedIds(lastValid ? [lastValid.event_id] : [data.events[0].name])
     }
