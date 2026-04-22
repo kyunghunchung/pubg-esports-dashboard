@@ -19,28 +19,23 @@ export interface EventMasterEntry {
 }
 
 export const EVENT_MASTER: EventMasterEntry[] = [
-  // ── 2026 ───────────────────────────────────────────────────────
-  { event_id: 'ANNUAL_2026', display_name: 'Annual 2026', year: 2026, is_global: false, sort_order: 99 },
   // ── 2025 ───────────────────────────────────────────────────────
-  { event_id: 'PNC_2025',    display_name: 'PNC 2025',    year: 2025, is_global: true,  sort_order: 1 },
-  { event_id: 'PGS1_2025',   display_name: 'PGS1 2025',   year: 2025, is_global: true,  sort_order: 2 },
-  { event_id: 'EWC_2025',    display_name: 'EWC 2025',    year: 2025, is_global: true,  sort_order: 3 },
-  { event_id: 'PGC_2025',    display_name: 'PGC 2025',    year: 2025, is_global: true,  sort_order: 4 },
-  { event_id: 'ENC_2025',    display_name: 'ENC 2025',    year: 2025, is_global: false, sort_order: 5 },
-  { event_id: 'ANNUAL_2025', display_name: 'Annual 2025', year: 2025, is_global: false, sort_order: 99 },
+  { event_id: 'PNC_2025',  display_name: 'PNC 2025',  year: 2025, is_global: true,  sort_order: 1 },
+  { event_id: 'PGS1_2025', display_name: 'PGS1 2025', year: 2025, is_global: true,  sort_order: 2 },
+  { event_id: 'EWC_2025',  display_name: 'EWC 2025',  year: 2025, is_global: true,  sort_order: 3 },
+  { event_id: 'PGC_2025',  display_name: 'PGC 2025',  year: 2025, is_global: true,  sort_order: 4 },
+  { event_id: 'ENC_2025',  display_name: 'ENC 2025',  year: 2025, is_global: false, sort_order: 5 },
   // ── 2024 ───────────────────────────────────────────────────────
-  { event_id: 'PGS3_2024',   display_name: 'PGS3 2024',   year: 2024, is_global: true,  sort_order: 1 },
-  { event_id: 'PGS4_2024',   display_name: 'PGS4 2024',   year: 2024, is_global: true,  sort_order: 2 },
-  { event_id: 'EWC_2024',    display_name: 'EWC 2024',    year: 2024, is_global: true,  sort_order: 3 },
-  { event_id: 'PNC_2024',    display_name: 'PNC 2024',    year: 2024, is_global: true,  sort_order: 4 },
-  { event_id: 'PGC_2024',    display_name: 'PGC 2024',    year: 2024, is_global: true,  sort_order: 5 },
-  { event_id: 'ANNUAL_2024', display_name: 'Annual 2024', year: 2024, is_global: false, sort_order: 99 },
+  { event_id: 'PGS3_2024', display_name: 'PGS3 2024', year: 2024, is_global: true,  sort_order: 1 },
+  { event_id: 'PGS4_2024', display_name: 'PGS4 2024', year: 2024, is_global: true,  sort_order: 2 },
+  { event_id: 'EWC_2024',  display_name: 'EWC 2024',  year: 2024, is_global: true,  sort_order: 3 },
+  { event_id: 'PNC_2024',  display_name: 'PNC 2024',  year: 2024, is_global: true,  sort_order: 4 },
+  { event_id: 'PGC_2024',  display_name: 'PGC 2024',  year: 2024, is_global: true,  sort_order: 5 },
   // ── 2023 ───────────────────────────────────────────────────────
-  { event_id: 'PGS1_2023',   display_name: 'PGS1 2023',   year: 2023, is_global: true,  sort_order: 1 },
-  { event_id: 'PGS2_2023',   display_name: 'PGS2 2023',   year: 2023, is_global: true,  sort_order: 2 },
-  { event_id: 'PNC_2023',    display_name: 'PNC 2023',     year: 2023, is_global: true,  sort_order: 3 },
-  { event_id: 'PGC_2023',    display_name: 'PGC 2023',     year: 2023, is_global: true,  sort_order: 4 },
-  { event_id: 'ANNUAL_2023', display_name: 'Annual 2023', year: 2023, is_global: false, sort_order: 99 },
+  { event_id: 'PGS1_2023', display_name: 'PGS1 2023', year: 2023, is_global: true,  sort_order: 1 },
+  { event_id: 'PGS2_2023', display_name: 'PGS2 2023', year: 2023, is_global: true,  sort_order: 2 },
+  { event_id: 'PNC_2023',  display_name: 'PNC 2023',  year: 2023, is_global: true,  sort_order: 3 },
+  { event_id: 'PGC_2023',  display_name: 'PGC 2023',  year: 2023, is_global: true,  sort_order: 4 },
 ]
 
 // ── 런타임 오버라이드 (Supabase에서 로드 후 setRuntimeEventMaster() 호출) ──

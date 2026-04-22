@@ -16,6 +16,8 @@ import { useLang } from '@/lib/context/lang'
 import {
   getAllYears,
   getGlobalEventsByYear,
+  getEventsByYear,
+  getEventMasterById,
   getDisplayName,
 } from '@/lib/config/event-master'
 import { KpiCard } from '@/components/kpi/KpiCard'
@@ -82,14 +84,28 @@ export default function DashboardPage() {
     () => selectedIds.map((eid: string) => data?.events.find(e => e.name === eid)?.id).filter((id): id is string => Boolean(id)),
     [data, selectedIds],
   )
-  const hasDateData = useMemo(
-    () => data ? hasSocialDateData(data, selectedUUIDs) : false,
-    [data, selectedUUIDs],
+
+  // 선택된 이벤트의 연도 → 연도 전체 콘텐츠 트렌드에 사용
+  const selectedYear = useMemo(() => {
+    if (!selectedIds.length) return getAllYears()[0]
+    return getEventMasterById(selectedIds[0])?.year ?? getAllYears()[0]
+  }, [selectedIds])
+
+  const yearUUIDs = useMemo(() => {
+    if (!data) return []
+    return getEventsByYear(selectedYear)
+      .map(e => data.events.find(ev => ev.name === e.event_id)?.id)
+      .filter((id): id is string => Boolean(id))
+  }, [data, selectedYear])
+
+  const annualHasDateData = useMemo(
+    () => data ? hasSocialDateData(data, yearUUIDs) : false,
+    [data, yearUUIDs],
   )
-  const trendData = useMemo(() => {
-    if (!data || !hasDateData) return []
-    return getSocialTrend(data, selectedUUIDs, trendPeriod)
-  }, [data, selectedUUIDs, trendPeriod, hasDateData])
+  const annualTrendData = useMemo(() => {
+    if (!data || !annualHasDateData) return []
+    return getSocialTrend(data, yearUUIDs, trendPeriod)
+  }, [data, yearUUIDs, trendPeriod, annualHasDateData])
 
   const calendarData = useMemo(
     () => data ? getContentCalendar(data, calendarYear, masterEntries) : { weeks: [], events: [] },
@@ -259,11 +275,16 @@ export default function DashboardPage() {
             <KpiCard label="Engagement"         value={content.engagements}   unit={lang === 'ko' ? '회' : ''} />
           </div>
 
-          {/* 기간별 트렌드 (주간) */}
-          {hasDateData ? (
+          {/* 연간 콘텐츠 트렌드 (주간 — 선택 연도 전체 기준) */}
+          {annualHasDateData ? (
             <div className="bg-brand-surface border border-brand-border rounded-xl p-5 space-y-4 mt-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="text-sm font-semibold text-gray-300">{t('trendTitle')}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-semibold text-gray-300">{t('trendTitle')}</p>
+                  <span className="text-xs text-gray-500 bg-brand-bg border border-brand-border px-2 py-0.5 rounded-full">
+                    {selectedYear}
+                  </span>
+                </div>
                 <select
                   value={trendMetric}
                   onChange={e => setTrendMetric(e.target.value as typeof trendMetric)}
@@ -275,7 +296,7 @@ export default function DashboardPage() {
                   <option value="engagements">Engagement</option>
                 </select>
               </div>
-              <ContentsTrendChart data={trendData} metric={trendMetric} period={trendPeriod} />
+              <ContentsTrendChart data={annualTrendData} metric={trendMetric} period={trendPeriod} />
             </div>
           ) : null}
         </section>
