@@ -304,7 +304,7 @@ export default function DashboardPage() {
           <section className="space-y-3">
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-widest">
-                {lang === 'ko' ? '콘텐츠 캘린더' : 'Contents Calendar'}
+                Contents Calendar
               </h2>
               <select
                 value={calendarYear}
