@@ -6,7 +6,6 @@ import {
   getViewershipTotal,
   getViewershipDataType,
   getContentAggregated,
-  getSocialAggregatedByPlatform,
   getSocialTrend,
   hasSocialDateData,
   getContentCalendar,
@@ -24,10 +23,6 @@ import { TournamentFilter } from '@/components/dashboard/TournamentFilter'
 import { cn } from '@/lib/utils'
 import dynamic from 'next/dynamic'
 
-const SocialPlatformChart = dynamic(
-  () => import('@/components/charts/SocialPlatformChart').then(m => m.SocialPlatformChart),
-  { ssr: false },
-)
 const ContentsTrendChart = dynamic(
   () => import('@/components/charts/ContentsTrendChart').then(m => m.ContentsTrendChart),
   { ssr: false },
@@ -121,7 +116,7 @@ export default function DashboardPage() {
   const stabilityRatio = pccv > 0 ? Math.round((accv / pccv) * 100) : null
 
   const content        = data ? getContentAggregated(data, selectedUUIDs) : { impressions: 0, content_count: 0, video_views: 0, engagements: 0 }
-  const socialChartData = data ? getSocialAggregatedByPlatform(data, selectedUUIDs) : []
+
 
   const uploadedDate = data
     ? new Date(data.uploadedAt).toLocaleDateString(lang === 'ko' ? 'ko-KR' : 'en-US')
@@ -288,16 +283,6 @@ export default function DashboardPage() {
           ) : null}
         </section>
 
-        {/* ── 소셜 채널별 성과 ── */}
-        {socialChartData.length > 0 && (
-          <section className="bg-brand-surface border border-brand-border rounded-xl p-6">
-            <div className="mb-4">
-              <h2 className="text-sm font-semibold text-gray-300">{t('socialPerformance')}</h2>
-              <p className="text-xs text-gray-500 mt-0.5">{t('socialDesc')}</p>
-            </div>
-            <SocialPlatformChart data={socialChartData} />
-          </section>
-        )}
 
         {/* ── 섹션 C: 연간 콘텐츠 캘린더 ── */}
         {data && (
