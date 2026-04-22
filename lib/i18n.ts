@@ -64,8 +64,8 @@ export const translations = {
 
     // ── co-streaming ─────────────────────────────────────────────
     coSubtitle:           '코스트리밍 스트리머 참여 현황 및 시청자 지표',
-    coStreamerScale:       '스트리머 규모',
-    coStreamerCount:       '스트리머 수',
+    coStreamerScale:       '고유 스트리머수',
+    coStreamerCount:       '고유 스트리머수',
     coViewerMetrics:      '시청자 지표',
     coPeakViewTotal:      'Peak View 합산',
     coPeakViewCaption:    '※ 스트리머별 피크 시간대가 상이하므로 동시 달성 수치가 아닙니다.',
@@ -241,8 +241,8 @@ export const translations = {
 
     // ── co-streaming ─────────────────────────────────────────────
     coSubtitle:           'Co-streaming streamer participation and viewer metrics',
-    coStreamerScale:      'Streamer Scale',
-    coStreamerCount:      'Streamer Count',
+    coStreamerScale:      'Unique Streamers',
+    coStreamerCount:      'Unique Streamers',
     coViewerMetrics:      'Viewer Metrics',
     coPeakViewTotal:      'Peak View Total',
     coPeakViewCaption:    '※ Peak times vary per streamer; not a simultaneous total.',
