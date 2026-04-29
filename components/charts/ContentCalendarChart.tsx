@@ -163,19 +163,11 @@ export function ContentCalendarChart({ data, year, lang }: Props) {
   const hasContent = weeks.some(w => w.content > 0)
   const hasPccv    = weeks.some(w => w.pccv != null && w.pccv > 0)
 
-  if (!hasContent && events.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-52 text-gray-500 text-sm">
-        {lang === 'ko' ? `${year}년 콘텐츠 데이터 없음` : `No content data for ${year}`}
-      </div>
-    )
-  }
-
-  const visibleBands = events.filter(e => !hiddenBands.has(e.event_id))
-  const minWidth = Math.max(900, weeks.length * 16)
   const xInterval = 3
 
-  // 주 뷰: 각 틱에서 월이 바뀌는 첫 번째 틱만 월 레이블 표시
+  const visibleBands = events.filter(e => !hiddenBands.has(e.event_id))
+
+  // 훅은 조기 return 이전에 모두 선언 (Rules of Hooks)
   const shownMonths = useMemo(() => {
     const set = new Set<string>()
     let lastMonth = ''
@@ -190,10 +182,8 @@ export function ContentCalendarChart({ data, year, lang }: Props) {
     return set
   }, [weeks])
 
-  // 월 뷰: 집계 데이터
   const monthData = useMemo(() => aggregateByMonth(weeks, lang), [weeks, lang])
 
-  // 월 뷰: 이벤트 밴드를 월 키로 변환
   const monthBands = useMemo(() =>
     visibleBands.map(ev => ({
       ...ev,
@@ -202,6 +192,16 @@ export function ContentCalendarChart({ data, year, lang }: Props) {
     })).filter(ev => ev.x1Month && ev.x2Month),
     [visibleBands, weeks]
   )
+
+  if (!hasContent && events.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-52 text-gray-500 text-sm">
+        {lang === 'ko' ? `${year}년 콘텐츠 데이터 없음` : `No content data for ${year}`}
+      </div>
+    )
+  }
+
+  const minWidth = Math.max(900, weeks.length * 16)
 
   return (
     <div className="space-y-3">
