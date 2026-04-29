@@ -33,6 +33,15 @@ const ContentCalendarChart = dynamic(
   { ssr: false },
 )
 
+function SectionHeader({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-2.5">
+      <span className="w-0.5 h-3.5 rounded-full bg-brand-accent shrink-0" />
+      <h2 className="text-[11px] font-semibold text-gray-500 uppercase tracking-widest">{children}</h2>
+    </div>
+  )
+}
+
 export default function DashboardPage() {
   const { data, loading, fetchError, refetch } = useDashboardData()
   const masterEntries = useInitEventMaster()
@@ -53,12 +62,11 @@ export default function DashboardPage() {
     setSelectedIds(ids)
   }
 
-  // Supabase에서 이벤트 마스터 로드 완료 후 최신 연도로 재설정
   const masterBootstrapped = useRef(false)
   useEffect(() => {
     if (!masterBootstrapped.current) {
       masterBootstrapped.current = true
-      return // 첫 번째 호출은 정적 EVENT_MASTER이므로 skip
+      return
     }
     const years = getAllYears()
     if (!years.length) return
@@ -78,7 +86,6 @@ export default function DashboardPage() {
     }
   }, [data]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Hooks (early return 이전에 모두 선언) ──
   const selectedUUIDs = useMemo(
     () => selectedIds.map((eid: string) => data?.events.find(e => e.name === eid)?.id).filter((id): id is string => Boolean(id)),
     [data, selectedIds],
@@ -92,13 +99,11 @@ export default function DashboardPage() {
     return getSocialTrend(data, selectedUUIDs, trendPeriod)
   }, [data, selectedUUIDs, trendPeriod, hasDateData])
 
-  // 선택 이벤트의 연도 → 캘린더 연도 연동
   const selectedYear = useMemo(() => {
     if (!selectedIds.length) return getAllYears()[0]
     return getEventMasterById(selectedIds[0])?.year ?? getAllYears()[0]
   }, [selectedIds])
 
-  // 언어 옵션: data.social의 region 값 기준
   const regionOptions = useMemo(() =>
     data ? Array.from(new Set(data.social.map(s => s.region).filter(Boolean))).sort() as string[] : [],
     [data],
@@ -111,11 +116,10 @@ export default function DashboardPage() {
 
   if (loading && !data) return <div className="min-h-screen bg-brand-bg" />
 
-  const isSingleEvent = selectedIds.length === 1
-  const singleEventId = isSingleEvent ? selectedIds[0] : null
-
-  const toUUID = (eid: string) => data?.events.find(e => e.name === eid)?.id
-  const singleUUID = singleEventId ? (toUUID(singleEventId) ?? null) : null
+  const isSingleEvent  = selectedIds.length === 1
+  const singleEventId  = isSingleEvent ? selectedIds[0] : null
+  const toUUID         = (eid: string) => data?.events.find(e => e.name === eid)?.id
+  const singleUUID     = singleEventId ? (toUUID(singleEventId) ?? null) : null
 
   const total          = singleUUID ? getViewershipTotal(data!, singleUUID, officialOnly) : null
   const viewershipType = singleUUID ? getViewershipDataType(data!, singleUUID) : 'none'
@@ -125,8 +129,9 @@ export default function DashboardPage() {
   const accv           = total?.acv ?? 0
   const stabilityRatio = pccv > 0 ? Math.round((accv / pccv) * 100) : null
 
-  const content        = data ? getContentAggregated(data, selectedUUIDs) : { impressions: 0, content_count: 0, video_views: 0, engagements: 0 }
-
+  const content = data
+    ? getContentAggregated(data, selectedUUIDs)
+    : { impressions: 0, content_count: 0, video_views: 0, engagements: 0 }
 
   const uploadedDate = data
     ? new Date(data.uploadedAt).toLocaleDateString(lang === 'ko' ? 'ko-KR' : 'en-US')
@@ -134,86 +139,83 @@ export default function DashboardPage() {
 
   return (
     <main className="min-h-screen bg-brand-bg text-white">
-      <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
+      <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">
 
         {/* 헤더 */}
-        <div>
-          <h1 className="text-2xl font-bold">{t('dashTitle')}</h1>
-          <p className="text-sm text-gray-400 mt-1">
-            {singleEventId
-              ? getDisplayName(singleEventId)
-              : `${selectedIds.length}${t('eventsSelected')}`}
-            {data && (
-              <span className="ml-2 text-xs text-gray-500">
-                {t('uploaded')} {uploadedDate}
-              </span>
-            )}
-          </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-lg font-bold text-white">{t('dashTitle')}</h1>
+            <p className="text-xs text-gray-600 mt-0.5">
+              {singleEventId
+                ? getDisplayName(singleEventId)
+                : `${selectedIds.length}${t('eventsSelected')}`}
+              {data && (
+                <span className="ml-2 text-gray-700">
+                  · {t('uploaded')} {uploadedDate}
+                </span>
+              )}
+            </p>
+          </div>
         </div>
 
         {/* 필터 */}
-        <TournamentFilter
-          selectedIds={selectedIds}
-          onChange={updateSelectedIds}
-        />
+        <TournamentFilter selectedIds={selectedIds} onChange={updateSelectedIds} />
 
-        {/* Supabase 연결 오류 */}
+        {/* 에러 배너 */}
         {fetchError && !data?.events.length && (
-          <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-xl p-4 flex items-center justify-between">
-            <p className="text-sm text-yellow-300">{t('connError')}</p>
+          <div className="bg-amber-950/30 border border-amber-500/20 rounded-xl px-4 py-3 flex items-center justify-between gap-4">
+            <p className="text-xs text-amber-400">{t('connError')}</p>
             <button
               onClick={refetch}
-              className="shrink-0 px-3 py-1.5 rounded-lg border border-yellow-500/40 text-yellow-300 text-xs font-medium hover:bg-yellow-500/10 transition-all"
+              className="shrink-0 px-3 py-1 rounded-lg border border-amber-500/30 text-amber-400 text-xs font-medium hover:bg-amber-500/10 transition-colors"
             >
               {t('retry')}
             </button>
           </div>
         )}
 
-        {/* 데이터 미업로드 안내 */}
+        {/* 데이터 없음 */}
         {!fetchError && !data?.events.length && (
-          <div className="bg-brand-surface border border-brand-border rounded-xl p-6 flex items-center justify-between">
+          <div className="bg-brand-surface border border-brand-border rounded-xl px-5 py-4 flex items-center justify-between gap-4">
             <div>
               <p className="text-sm font-medium text-gray-300">{t('noDataTitle')}</p>
-              <p className="text-xs text-gray-500 mt-0.5">{t('noDataDesc')}</p>
+              <p className="text-xs text-gray-600 mt-0.5">{t('noDataDesc')}</p>
             </div>
             <Link
               href="/data-upload"
-              className="shrink-0 px-4 py-2 rounded-lg bg-brand-accent text-white text-sm font-medium hover:bg-brand-accent/80 transition-all"
+              className="shrink-0 px-3 py-1.5 rounded-lg bg-brand-accent text-white text-xs font-medium hover:bg-brand-dim transition-colors"
             >
               {t('uploadDataBtn')}
             </Link>
           </div>
         )}
 
-        {/* ── 섹션 A: Viewership KPI ── */}
+        {/* ── Viewership ── */}
         <section className="space-y-3">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div className="flex items-center gap-3">
-              <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-widest">
-                Viewership
-              </h2>
+              <SectionHeader>Viewership</SectionHeader>
               {!isSingleEvent && (
-                <span className="text-xs text-gray-600 bg-brand-surface border border-brand-border px-2 py-0.5 rounded-full">
+                <span className="text-[10px] text-gray-700 bg-brand-muted border border-brand-border px-2 py-0.5 rounded-full">
                   {t('selectSingleHint')}
                 </span>
               )}
             </div>
-            {/* Official Only 토글 */}
             <button
               onClick={() => setOfficialOnly(v => !v)}
               className={cn(
-                'flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all',
+                'flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-colors',
                 officialOnly
-                  ? 'bg-brand-accent/20 border-brand-accent/50 text-brand-accent'
-                  : 'bg-brand-surface border-brand-border text-gray-400 hover:text-white'
+                  ? 'bg-brand-accent/15 border-brand-accent/40 text-blue-300'
+                  : 'bg-brand-surface border-brand-border text-gray-600 hover:text-gray-300'
               )}
             >
-              <span className={cn('w-1.5 h-1.5 rounded-full', officialOnly ? 'bg-brand-accent' : 'bg-gray-600')} />
+              <span className={cn('w-1.5 h-1.5 rounded-full transition-colors', officialOnly ? 'bg-brand-accent' : 'bg-gray-700')} />
               {t('officialOnly')}
             </button>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             <KpiCard
               label="PCCV"
               sublabel="Peak Concurrent Viewers"
@@ -260,27 +262,25 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        {/* ── 섹션 B: Contents KPI ── */}
+        {/* ── Contents ── */}
         <section className="space-y-3">
-          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-widest">
-            Contents
-          </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <SectionHeader>Contents</SectionHeader>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <KpiCard label="Number of Contents" value={content.content_count} unit={lang === 'ko' ? '건' : ''} />
-            <KpiCard label="Impression"         value={content.impressions}   unit={lang === 'ko' ? '회' : ''} />
-            <KpiCard label="Views"              value={content.video_views}   unit={lang === 'ko' ? '회' : ''} />
-            <KpiCard label="Engagement"         value={content.engagements}   unit={lang === 'ko' ? '회' : ''} />
+            <KpiCard label="Impression"          value={content.impressions}   unit={lang === 'ko' ? '회' : ''} />
+            <KpiCard label="Views"               value={content.video_views}   unit={lang === 'ko' ? '회' : ''} />
+            <KpiCard label="Engagement"          value={content.engagements}   unit={lang === 'ko' ? '회' : ''} />
           </div>
 
-          {/* 기간별 트렌드 (주간) */}
-          {hasDateData ? (
-            <div className="bg-brand-surface border border-brand-border rounded-xl p-5 space-y-4 mt-4">
+          {hasDateData && (
+            <div className="bg-brand-surface border border-brand-border rounded-xl p-4 space-y-3 mt-1">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="text-sm font-semibold text-gray-300">{t('trendTitle')}</p>
+                <p className="text-xs font-semibold text-gray-400">{t('trendTitle')}</p>
                 <select
                   value={trendMetric}
                   onChange={e => setTrendMetric(e.target.value as typeof trendMetric)}
-                  className="bg-brand-bg border border-brand-border rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-brand-accent"
+                  className="bg-brand-bg border border-brand-border rounded-lg px-3 py-1 text-xs text-white focus:outline-none focus:border-brand-accent/60"
                 >
                   <option value="content_count">Number of Contents</option>
                   <option value="impressions">Impression</option>
@@ -290,26 +290,23 @@ export default function DashboardPage() {
               </div>
               <ContentsTrendChart data={trendData} metric={trendMetric} period={trendPeriod} />
             </div>
-          ) : null}
+          )}
         </section>
 
-
-        {/* ── 섹션 C: 연간 콘텐츠 캘린더 ── */}
+        {/* ── Contents Calendar ── */}
         {data && (
           <section className="space-y-3">
             <div className="flex items-center justify-between gap-3 flex-wrap">
-              <div className="flex items-center gap-2">
-                <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-widest">
-                  Contents Calendar
-                </h2>
-                <span className="text-xs text-gray-600 bg-brand-surface border border-brand-border px-2 py-0.5 rounded-full">
+              <div className="flex items-center gap-2.5">
+                <SectionHeader>Contents Calendar</SectionHeader>
+                <span className="text-[10px] text-gray-700 bg-brand-muted border border-brand-border px-2 py-0.5 rounded-full">
                   {selectedYear}
                 </span>
               </div>
               <select
                 value={calendarRegion}
                 onChange={e => setCalendarRegion(e.target.value)}
-                className="bg-brand-bg border border-brand-border rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-brand-accent"
+                className="bg-brand-bg border border-brand-border rounded-lg px-3 py-1 text-xs text-white focus:outline-none focus:border-brand-accent/60"
               >
                 <option value="">{lang === 'ko' ? '전체 언어' : 'All Languages'}</option>
                 {regionOptions.map(r => (
@@ -317,7 +314,7 @@ export default function DashboardPage() {
                 ))}
               </select>
             </div>
-            <div className="bg-brand-surface border border-brand-border rounded-xl p-5">
+            <div className="bg-brand-surface border border-brand-border rounded-xl p-4">
               <ContentCalendarChart data={calendarData} year={selectedYear} lang={lang} />
             </div>
           </section>

@@ -13,10 +13,13 @@ const config: Config = {
         background: 'var(--background)',
         foreground: 'var(--foreground)',
         brand: {
-          bg:      '#0A0E1A',
-          surface: '#111827',
-          border:  '#1F2937',
-          accent:  '#3B82F6',
+          bg:       '#080C18',
+          surface:  '#0D1525',
+          elevated: '#111E33',
+          border:   '#1E2A42',
+          muted:    '#162035',
+          accent:   '#3B82F6',
+          dim:      '#1D4ED8',
         },
         kpi: {
           success: '#10B981',
@@ -25,10 +28,12 @@ const config: Config = {
           live:    '#EF4444',
         },
       },
-      borderRadius: {
-        lg: 'var(--radius)',
-        md: 'calc(var(--radius) - 2px)',
-        sm: 'calc(var(--radius) - 4px)',
+      fontSize: {
+        '2xs': ['0.65rem', { lineHeight: '1rem' }],
+      },
+      boxShadow: {
+        'card': '0 1px 3px 0 rgb(0 0 0 / 0.4), 0 1px 2px -1px rgb(0 0 0 / 0.4)',
+        'card-hover': '0 4px 12px 0 rgb(0 0 0 / 0.5)',
       },
     },
   },
